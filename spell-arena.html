@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>스펠 아레나</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f0e17 0%, #1a1626 50%, #2d1b69 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #gameContainer {
+            width: 100%;
+            max-width: 1400px;
+            padding: 10px;
+        }
+        
+        #menu {
+            text-align: center;
+            color: white;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        #menu h1 {
+            font-size: 48px;
+            background: linear-gradient(45deg, #a855f7, #ec4899, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 15px;
+            text-shadow: 0 0 30px rgba(168, 85, 247, 0.5);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { filter: brightness(1); }
+            to { filter: brightness(1.2); }
+        }
+        
+        .subtitle {
+            font-size: 18px;
+            color: #c4b5fd;
+            margin-bottom: 20px;
+        }
+        
+        .emoji-vs {
+            font-size: 48px;
+            margin: 15px 0;
+            animation: bounce 1s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        #startBtn {
+            padding: 12px 40px;
+            font-size: 20px;
+            background: linear-gradient(135deg, #a855f7, #ec4899);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 8px 20px rgba(168, 85, 247, 0.4);
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        
+        #startBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(168, 85, 247, 0.6);
+        }
+        
+        .info-box {
+            margin-top: 25px;
+            text-align: left;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            background: rgba(30, 27, 75, 0.6);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(168, 85, 247, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .info-box h3 {
+            color: #a855f7;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .info-box p {
+            color: #e0e7ff;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        #gameScreen {
+            display: none;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        #stats {
+            background: linear-gradient(135deg, rgba(30, 27, 75, 0.9), rgba(45, 27, 105, 0.9));
+            padding: 12px 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(168, 85, 247, 0.5);
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        
+        .stat-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        #timer {
+            font-size: 24px;
+            color: #a855f7;
+            font-weight: bold;
+            background: rgba(168, 85, 247, 0.2);
+            padding: 5px 15px;
+            border-radius: 10px;
+        }
+        
+        #gameArea {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        #canvasContainer {
+            position: relative;
+            border: 3px solid;
+            border-image: linear-gradient(45deg, #a855f7, #ec4899, #f59e0b) 1;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(168, 85, 247, 0.4);
+            background: #0a0a15;
+            flex: 1;
+        }
+        
+        #canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        
+        .side-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 200px;
+        }
+        
+        .control-panel {
+            background: linear-gradient(135deg, rgba(30, 27, 75, 0.9), rgba(45, 27, 105, 0.9));
+            padding: 15px;
+            border-radius: 15px;
+            border: 2px solid rgba(168, 85, 247, 0.5);
+            backdrop-filter: blur(10px);
+        }
+        
+        .control-panel h3 {
+            color: #c4b5fd;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-size: 22px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+        }
+        
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        .btn.spell {
+            background: linear-gradient(135deg, #a855f7, #ec4899);
+            color: white;
+        }
+        
+        .btn.creature {
+            background: linear-gradient(135deg, #10b981, #14b8a6);
+            color: white;
+        }
+        
+        .btn:disabled {
+            background: linear-gradient(135deg, #374151, #4b5563);
+            color: #6b7280;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .btn-info {
+            font-size: 9px;
+            display: block;
+            margin-top: 2px;
+            opacity: 0.9;
+        }
+        
+        @media (max-width: 1200px) {
+            #gameArea {
+                flex-direction: column;
+            }
+            
+            .side-controls {
+                width: 100%;
+                flex-direction: row;
+            }
+            
+            .control-panel {
+                flex: 1;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            #menu h1 { font-size: 36px; }
+            .emoji-vs { font-size: 36px; }
+            #stats { font-size: 12px; padding: 10px; }
+            .stat-value { font-size: 14px; }
+            #timer { font-size: 18px; }
+            .side-controls { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div id="gameContainer">
+    <div id="menu">
+        <h1>⚔️ 스펠 아레나 ⚔️</h1>
+        <p class="subtitle">실시간 액션 마법 전투</p>
+        <div class="emoji-vs">🧙‍♂️ VS 🧙‍♀️</div>
+        <button id="startBtn">⚡ 게임 시작 ⚡</button>
+        <div class="info-box">
+            <h3>🎮 조작법</h3>
+            <p>• 이동: 방향키 또는 WASD</p>
+            <p>• 주문: 숫자키 1-4 (적과 크리처 공격)</p>
+            <p>• 크리처: Q, W, E, R (자동으로 적 추적)</p>
+            <h3 style="margin-top: 15px;">💡 게임 팁</h3>
+            <p>• 크리처는 한 방에 죽습니다!</p>
+            <p>• 주문으로 적 크리처를 먼저 제거하세요</p>
+            <p>• 적의 HP를 0으로 만들면 승리!</p>
+        </div>
+    </div>
+
+    <div id="gameScreen">
+        <div id="stats">
+            <div class="stat-item">
+                <span class="stat-label" style="color: #60a5fa;">🧙‍♂️ 플레이어</span>
+                <div class="stat-value">❤️ <span id="playerHp">20</span></div>
+                <div class="stat-value">💧 <span id="playerMana">5</span></div>
+            </div>
+            <div id="timer">0:00</div>
+            <div class="stat-item" style="text-align: right;">
+                <span class="stat-label" style="color: #ef4444;">🧙‍♀️ AI</span>
+                <div class="stat-value"><span id="enemyHp">20</span> ❤️</div>
+                <div class="stat-value"><span id="enemyMana">5</span> 💧</div>
+            </div>
+        </div>
+
+        <div id="gameArea">
+            <!-- 왼쪽 컨트롤 -->
+            <div class="side-controls">
+                <div class="control-panel">
+                    <h3>🔥 주문</h3>
+                    <div class="buttons">
+                        <button class="btn spell" data-spell="0" title="숫자키 1">
+                            <div>🔥</div>
+                            <span class="btn-info">1 | 💧2</span>
+                        </button>
+                        <button class="btn spell" data-spell="1" title="숫자키 2">
+                            <div>💚</div>
+                            <span class="btn-info">2 | 💧2</span>
+                        </button>
+                        <button class="btn spell" data-spell="2" title="숫자키 3">
+                            <div>⚡</div>
+                            <span class="btn-info">3 | 💧3</span>
+                        </button>
+                        <button class="btn spell" data-spell="3" title="숫자키 4">
+                            <div>❄️</div>
+                            <span class="btn-info">4 | 💧2</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 중앙 게임 화면 -->
+            <div id="canvasContainer">
+                <canvas id="canvas" width="1000" height="700"></canvas>
+            </div>
+
+            <!-- 오른쪽 컨트롤 -->
+            <div class="side-controls">
+                <div class="control-panel">
+                    <h3>⚔️ 크리처</h3>
+                    <div class="buttons">
+                        <button class="btn creature" data-creature="0" title="Q키">
+                            <div>⚔️</div>
+                            <span class="btn-info">Q | 💧2</span>
+                        </button>
+                        <button class="btn creature" data-creature="1" title="W키">
+                            <div>🏹</div>
+                            <span class="btn-info">W | 💧3</span>
+                        </button>
+                        <button class="btn creature" data-creature="2" title="E키">
+                            <div>🛡️</div>
+                            <span class="btn-info">E | 💧4</span>
+                        </button>
+                        <button class="btn creature" data-creature="3" title="R키">
+                            <div>🔮</div>
+                            <span class="btn-info">R | 💧3</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let gameState = 'menu';
+    let player = {
+        hp: 20,
+        maxHp: 20,
+        mana: 5,
+        maxMana: 5,
+        x: 200,
+        y: 350,
+        speed: 5,
+        creatures: [],
+        facing: 'right',
+        meleeCooldown: 0
+    };
+
+    let enemy = {
+        hp: 20,
+        maxHp: 20,
+        mana: 5,
+        maxMana: 5,
+        x: 800,
+        y: 350,
+        creatures: [],
+        facing: 'left'
+    };
+
+    let projectiles = [];
+    let gameTime = 0;
+    let lastSpellCast = {};
+    let keys = {};
+
+    let aiMoveTarget = { x: 800, y: 350 };
+
+    const spells = [
+        { name: '화염구', cost: 2, type: 'projectile', damage: 3, speed: 7, size: 15, color: '#ff4444', icon: '🔥', cooldown: 800 },
+        { name: '치유', cost: 2, type: 'heal', power: 4, icon: '💚', cooldown: 2000 },
+        { name: '번개', cost: 3, type: 'projectile', damage: 4, speed: 12, size: 12, color: '#ffff00', icon: '⚡', cooldown: 1200 },
+        { name: '얼음', cost: 2, type: 'projectile', damage: 4, speed: 6, size: 18, color: '#4444ff', icon: '❄️', cooldown: 600 }
+    ];
+
+    const creatures = [
+        { name: '검사', cost: 2, hp: 1, attack: 2, speed: 2, icon: '⚔️', size: 25, color: '#2ecc71' },
+        { name: '궁수', cost: 3, hp: 1, attack: 3, speed: 1, icon: '🏹', size: 22, color: '#3498db' },
+        { name: '방패병', cost: 2, hp: 2, attack: 0, speed: 0, icon: '🛡️', size: 28, color: '#9b59b6', type: 'shield' },
+        { name: '마법사', cost: 3, hp: 1, attack: 5, speed: 1.5, icon: '🔮', size: 22, color: '#e74c3c' }
+    ];
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+        document.getElementById('menu').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'block';
+        gameState = 'playing';
+        startGame();
+    });
+
+    function startGame() {
+        player = {
+            hp: 20,
+            maxHp: 20,
+            mana: 5,
+            maxMana: 5,
+            x: 200,
+            y: 350,
+            speed: 5,
+            creatures: [],
+            facing: 'right',
+            meleeCooldown: 0
+        };
+
+        enemy = {
+            hp: 20,
+            maxHp: 20,
+            mana: 5,
+            maxMana: 5,
+            x: 800,
+            y: 350,
+            creatures: [],
+            facing: 'left',
+            meleeCooldown: 0
+        };
+
+        projectiles = [];
+        gameTime = 0;
+        lastSpellCast = {};
+
+        gameLoop();
+    }
+
+    document.addEventListener('keydown', (e) => {
+        keys[e.key] = true;
+
+        if (gameState !== 'playing') return;
+
+        if (e.key === 'Control') {
+            tryMeleeAttack();
+        }
+
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= 4) {
+            castSpell(num - 1);
+        }
+
+        if (e.key.toLowerCase() === 'q') summonCreature(0);
+        if (e.key.toLowerCase() === 'w') summonCreature(1);
+        if (e.key.toLowerCase() === 'e') summonCreature(2);
+        if (e.key.toLowerCase() === 'r') summonCreature(3);
+    });
+
+    document.addEventListener('keyup', (e) => {
+        keys[e.key] = false;
+    });
+
+    document.querySelectorAll('.btn.spell').forEach((btn, index) => {
+        btn.addEventListener('click', () => castSpell(index));
+    });
+
+    document.querySelectorAll('.btn.creature').forEach((btn, index) => {
+        btn.addEventListener('click', () => summonCreature(index));
+    });
+
+    function castSpell(index) {
+        const spell = spells[index];
+        if (player.mana < spell.cost) return;
+
+        const now = Date.now();
+        if (lastSpellCast[index] && now - lastSpellCast[index] < spell.cooldown) {
+            return;
+        }
+
+        if (spell.type === 'projectile') {
+            const xOffset = player.facing === 'right' ? 40 : -40;
+            projectiles.push({
+                x: player.x + xOffset,
+                y: player.y,
+                velocityX: spell.speed * (player.facing === 'right' ? 1 : -1),
+                velocityY: 0,
+                damage: spell.damage,
+                size: spell.size,
+                color: spell.color,
+                owner: 'player'
+            });
+            player.mana -= spell.cost;
+        } else if (spell.type === 'heal') {
+            player.hp = Math.min(player.maxHp, player.hp + spell.power);
+            player.mana -= spell.cost;
+        }
+
+        lastSpellCast[index] = now;
+        updateUI();
+    }
+
+    function summonCreature(index) {
+        const creature = creatures[index];
+        if (player.mana < creature.cost || player.creatures.length >= 10) return;
+
+        player.creatures.push({
+            ...creature,
+            id: Date.now() + Math.random(),
+            x: player.x + 60,
+            y: player.y + (Math.random() - 0.5) * 150,
+            currentHp: creature.hp,
+            facing: 'right'
+        });
+
+        player.mana -= creature.cost;
+        updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('playerHp').textContent = Math.floor(player.hp);
+        document.getElementById('playerMana').textContent = Math.floor(player.mana);
+        document.getElementById('enemyHp').textContent = Math.floor(enemy.hp);
+        document.getElementById('enemyMana').textContent = Math.floor(enemy.mana);
+
+        const minutes = Math.floor(gameTime / 60);
+        const seconds = gameTime % 60;
+        document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+        document.querySelectorAll('.btn.spell').forEach((btn, index) => {
+            btn.disabled = player.mana < spells[index].cost;
+        });
+
+        document.querySelectorAll('.btn.creature').forEach((btn, index) => {
+            btn.disabled = player.mana < creatures[index].cost || player.creatures.length >= 10;
+        });
+    }
+
+    function drawCharacter(x, y, color, facing, label) {
+        // 그림자
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(x, y + 35, 28, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 몸통
+        const gradient = ctx.createLinearGradient(x - 20, y - 20, x + 20, y + 30);
+        gradient.addColorStop(0, color);
+        gradient.addColorStop(1, color + 'cc');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x - 18, y - 18, 36, 42);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x - 18, y - 18, 36, 42);
+
+        // 머리
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(x, y - 32, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 눈
+        ctx.fillStyle = '#000';
+        const eyeX = facing === 'right' ? 6 : -6;
+        ctx.fillRect(x + eyeX - 4, y - 35, 4, 4);
+        ctx.fillRect(x + eyeX + 4, y - 35, 4, 4);
+
+        // 팔
+        const armBounce = Math.sin(Date.now() / 150) * 8;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 12;
+        ctx.lineCap = 'round';
+
+        const armDir = facing === 'right' ? 1 : -1;
+
+        ctx.beginPath();
+        ctx.moveTo(x - 18, y - 8);
+        ctx.lineTo(x - 32 * armDir, y + 10 + armBounce);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x + 18, y - 8);
+        ctx.lineTo(x + 40 * armDir, y + 6 - armBounce);
+        ctx.stroke();
+
+        // 다리
+        ctx.lineWidth = 14;
+        const legBounce = Math.sin(Date.now() / 120) * 5;
+
+        ctx.beginPath();
+        ctx.moveTo(x - 8, y + 24);
+        ctx.lineTo(x - 8, y + 40 + legBounce);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x + 8, y + 24);
+        ctx.lineTo(x + 8, y + 40 - legBounce);
+        ctx.stroke();
+
+        // HP 바
+        const hp = label === '플레이어' ? player.hp / player.maxHp : enemy.hp / enemy.maxHp;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(x - 40, y - 60, 80, 10);
+
+        const hpGradient = ctx.createLinearGradient(x - 40, 0, x + 40, 0);
+        if (label === '플레이어') {
+            hpGradient.addColorStop(0, '#10b981');
+            hpGradient.addColorStop(1, '#059669');
+        } else {
+            hpGradient.addColorStop(0, '#ef4444');
+            hpGradient.addColorStop(1, '#dc2626');
+        }
+        ctx.fillStyle = hpGradient;
+        ctx.fillRect(x - 40, y - 60, 80 * hp, 10);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 40, y - 60, 80, 10);
+
+        // 라벨
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = color;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 4;
+        ctx.strokeText(label, x, y - 72);
+        ctx.fillText(label, x, y - 72);
+    }
+
+    function render() {
+        // 배경 그라데이션
+        const gradient = ctx.createLinearGradient(0, 0, 0, 700);
+        gradient.addColorStop(0, '#0f0e17');
+        gradient.addColorStop(0.5, '#1a1626');
+        gradient.addColorStop(1, '#2d1b69');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 1000, 700);
+
+        // 별 효과
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 80; i++) {
+            const x = (i * 137) % 1000;
+            const y = (i * 197) % 700;
+            const size = (i % 3) * 0.5 + 0.5;
+            const twinkle = Math.sin(Date.now() / 500 + i) * 0.5 + 0.5;
+            ctx.globalAlpha = twinkle * 0.6;
+            ctx.fillRect(x, y, size, size);
+        }
+        ctx.globalAlpha = 1;
+
+        // 중앙선
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([15, 15]);
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#a855f7';
+        ctx.beginPath();
+        ctx.moveTo(500, 0);
+        ctx.lineTo(500, 700);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+
+        // 플레이어 크리처
+        player.creatures.forEach(creature => {
+            ctx.fillStyle = creature.color;
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = creature.color;
+            ctx.beginPath();
+            ctx.arc(creature.x, creature.y, creature.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${creature.size + 10}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(creature.icon, creature.x, creature.y);
+        });
+
+        // 적 크리처
+        enemy.creatures.forEach(creature => {
+            ctx.fillStyle = '#e67e22';
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = '#e67e22';
+            ctx.beginPath();
+            ctx.arc(creature.x, creature.y, creature.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${creature.size + 10}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(creature.icon, creature.x, creature.y);
+        });
+
+        // 발사체
+        projectiles.forEach(proj => {
+            ctx.fillStyle = proj.color;
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = proj.color;
+            ctx.beginPath();
+            ctx.arc(proj.x, proj.y, proj.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // 꼬리 효과
+            for (let i = 1; i <= 3; i++) {
+                ctx.fillStyle = proj.color + '60';
+                ctx.beginPath();
+                ctx.arc(
+                    proj.x - proj.velocityX * i * 1.5,
+                    proj.y - proj.velocityY * i * 1.5,
+                    proj.size * (1 - i * 0.2),
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+        });
+
+        // 캐릭터
+        drawCharacter(player.x, player.y, '#60a5fa', player.facing, '플레이어');
+        drawCharacter(enemy.x, enemy.y, '#ef4444', enemy.facing, 'AI');
+
+        // 🗡️ 근접 공격 이펙트 (맨 마지막!)
+        if (Date.now() < player.meleeCooldown) {
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 70, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
+    function update() {
+        if (gameState !== 'playing') return;
+
+        // 플레이어 이동
+        if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+            player.x = Math.max(60, player.x - player.speed);
+            player.facing = 'left';
+        }
+        if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+            player.x = Math.min(450, player.x + player.speed);
+            player.facing = 'right';
+        }
+        if (keys['ArrowUp'] || keys['w'] || keys['W']) {
+            player.y = Math.max(80, player.y - player.speed);
+        }
+        if (keys['ArrowDown'] || keys['s'] || keys['S']) {
+            player.y = Math.min(620, player.y + player.speed);
+        }
+
+        // 🤖 AI 랜덤 이동
+        if (Math.random() < 0.02) {
+            aiMoveTarget.x = 550 + Math.random() * 350;
+            aiMoveTarget.y = 100 + Math.random() * 500;
+        }
+
+        const dxAI = aiMoveTarget.x - enemy.x;
+        const dyAI = aiMoveTarget.y - enemy.y;
+        const distAI = Math.sqrt(dxAI * dxAI + dyAI * dyAI);
+
+        if (distAI > 5) {
+            enemy.x += (dxAI / distAI) * 2;
+            enemy.y += (dyAI / distAI) * 2;
+        }
+
+        // 플레이어 너무 가까우면 회피
+        const pdx = player.x - enemy.x;
+        const pdy = player.y - enemy.y;
+        const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
+
+        if (pdist < 120) {
+            enemy.x -= (pdx / pdist) * 3;
+            enemy.y -= (pdy / pdist) * 3;
+        }
+
+        // 발사체 이동 및 충돌
+        projectiles = projectiles.filter(proj => {
+            proj.x += proj.velocityX;
+            proj.y += proj.velocityY;
+
+            if (proj.owner === 'player') {
+                // 적 캐릭터와 충돌
+                if (Math.abs(proj.x - enemy.x) < 40 && Math.abs(proj.y - enemy.y) < 40) {
+                    enemy.hp = Math.max(0, enemy.hp - proj.damage);
+                    updateUI();
+                    return false;
+                }
+
+                // 적 크리처와 충돌 - 한방에 죽음
+                const hitIndex = enemy.creatures.findIndex(c =>
+                    Math.abs(proj.x - c.x) < c.size + proj.size &&
+                    Math.abs(proj.y - c.y) < c.size + proj.size
+                );
+                if (hitIndex !== -1) {
+                    const c = enemy.creatures[hitIndex];
+
+                    if (c.type === 'shield') {
+                        // 🛡️ 방패병은 2번까지 버팀
+                        c.currentHp -= 1;
+
+                        if (c.currentHp <= 0) {
+                            enemy.creatures.splice(hitIndex, 1);
+                        }
+                    } else {
+                        // 일반 크리처는 한방
+                        enemy.creatures.splice(hitIndex, 1);
+                    }
+
+                    // 투사체는 여기서 무조건 소멸
+                    return false;
+                }
+            } else {
+                // 플레이어 캐릭터와 충돌
+                if (Math.abs(proj.x - player.x) < 40 && Math.abs(proj.y - player.y) < 40) {
+                    player.hp = Math.max(0, player.hp - proj.damage);
+                    updateUI();
+                    return false;
+                }
+
+                // 플레이어 크리처와 충돌 - 한방에 죽음
+                const hitIndex = player.creatures.findIndex(c =>
+                Math.abs(proj.x - c.x) < c.size + proj.size &&
+                Math.abs(proj.y - c.y) < c.size + proj.size
+            );
+
+            if (hitIndex !== -1) {
+                const c = player.creatures[hitIndex];
+
+                if (c.type === 'shield') {
+                    c.currentHp -= 1;
+
+                    if (c.currentHp <= 0) {
+                        player.creatures.splice(hitIndex, 1);
+                    }
+                } else {
+                    player.creatures.splice(hitIndex, 1);
+                }
+
+                return false;
+            }
+        }
+
+            return proj.x > 0 && proj.x < 1000 && proj.y > 0 && proj.y < 700;
+        });
+
+        // 플레이어 크리처 AI
+        for (let i = player.creatures.length - 1; i >= 0; i--) {
+            const creature = player.creatures[i];
+
+            // 🛡️ 방패병은 이동/공격 안 함
+            if (creature.type === 'shield') continue;
+
+            // 🔥 목표는 적!
+            const dx = enemy.x - creature.x;
+            const dy = enemy.y - creature.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > 40) {
+                creature.x += (dx / distance) * creature.speed;
+                creature.y += (dy / distance) * creature.speed;
+            } else {
+                // 💥 적에게 피해
+                enemy.hp = Math.max(0, enemy.hp - creature.attack);
+                updateUI();
+
+                // ❗ 공격 후 자기 자신 제거
+                player.creatures.splice(i, 1);
+            }
+        }
+
+        // 적 크리처 AI
+        for (let i = enemy.creatures.length - 1; i >= 0; i--) {
+            const creature = enemy.creatures[i];
+
+            // 🛡️ 방패병은 이동/공격 안 함
+            if (creature.type === 'shield') continue;
+
+            // 🔥 목표는 플레이어!
+            const dx = player.x - creature.x;
+            const dy = player.y - creature.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > 40) {
+                creature.x += (dx / distance) * creature.speed;
+                creature.y += (dy / distance) * creature.speed;
+            } else {
+                // 💥 플레이어에게 피해
+                player.hp = Math.max(0, player.hp - creature.attack);
+                updateUI();
+
+                // ❗ 공격 후 자기 자신 제거
+                enemy.creatures.splice(i, 1);
+            }
+        }
+
+        // 승패 체크
+        if (player.hp <= 0 || enemy.hp <= 0) {
+            gameState = 'gameover';
+            setTimeout(() => {
+                const result = player.hp > 0 ? '🎉 승리! 🎉' : '💀 패배 💀';
+                if (confirm(result + '\n\n다시 하시겠습니까?')) {
+                    location.reload();
+                }
+            }, 100);
+        }
+    }
+
+    function gameLoop() {
+        if (gameState === 'playing') {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+    }
+
+    function tryMeleeAttack() {
+        const now = Date.now();
+        if (now < player.meleeCooldown) return;
+
+        const MELEE_RANGE = 70;
+        const MELEE_COOLDOWN = 600; // ms
+
+        for (let i = enemy.creatures.length - 1; i >= 0; i--) {
+            const c = enemy.creatures[i];
+            const dx = c.x - player.x;
+            const dy = c.y - player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist <= MELEE_RANGE) {
+                if (c.type === 'shield') {
+                    c.currentHp -= 1;
+                    if (c.currentHp <= 0) {
+                        enemy.creatures.splice(i, 1);
+                    }
+                } else {
+                    enemy.creatures.splice(i, 1);
+                }
+            }
+        }
+
+        // 쿨타임 설정
+        player.meleeCooldown = now + MELEE_COOLDOWN;
+    }
+
+    // 마나 충전 및 AI
+    setInterval(() => {
+        if (gameState !== 'playing') return;
+
+        player.mana = Math.min(player.mana + 0.5, player.maxMana);
+        enemy.mana = Math.min(enemy.mana + 0.5, enemy.maxMana);
+        gameTime++;
+        updateUI();
+
+        // 🤖 AI 스펠 사용
+        if (enemy.mana >= 2 && Math.random() < 0.4) {
+            const spellIndex = Math.floor(Math.random() * spells.length);
+            const spell = spells[spellIndex];
+
+            if (enemy.mana >= spell.cost) {
+                if (spell.type === 'projectile') {
+                    const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+
+                    projectiles.push({
+                        x: enemy.x - 40,
+                        y: enemy.y,
+                        velocityX: Math.cos(angle) * spell.speed,
+                        velocityY: Math.sin(angle) * spell.speed,
+                        damage: spell.damage,
+                        size: spell.size,
+                        color: spell.color,
+                        owner: 'enemy'
+                    });
+
+                    enemy.mana -= spell.cost;
+                }
+
+                if (spell.type === 'heal' && enemy.hp < enemy.maxHp * 0.6) {
+                    enemy.hp = Math.min(enemy.maxHp, enemy.hp + spell.power);
+                    enemy.mana -= spell.cost;
+                }
+            }
+        }
+
+        // 🤖 AI 크리처 소환
+        if (
+            enemy.mana >= 2 &&
+            enemy.creatures.length < 5 &&
+            Math.random() < 0.35
+        ) {
+            const creatureIndex = Math.floor(Math.random() * creatures.length);
+            const creature = creatures[creatureIndex];
+
+            if (enemy.mana >= creature.cost) {
+                enemy.creatures.push({
+                    ...creature,
+                    id: Date.now() + Math.random(),
+                    x: enemy.x - 60,
+                    y: enemy.y + (Math.random() - 0.5) * 200,
+                    currentHp: creature.hp,
+                    facing: 'left'
+                });
+
+                enemy.mana -= creature.cost;
+            }
+        }
+    }, 1000);
+</script>
+</body>
+</html>
