@@ -323,10 +323,10 @@ const CFG={
   NET_HZ:30,          // 30hz sync - smoother
 };
 const SPELL_DEFS=[
-  {id:0,name:'화염구',cost:2,type:'proj',dmg:5, spd:7, size:14,color:'#ff4444',icon:'🔥',cd:700},
+  {id:0,name:'화염구',cost:2,type:'proj',dmg:5, spd:5, size:14,color:'#ff4444',icon:'🔥',cd:700},
   {id:1,name:'치유',  cost:2,type:'heal',heal:5,                icon:'💚',      cd:2500},
-  {id:2,name:'번개',  cost:3,type:'proj',dmg:8, spd:13,size:11,color:'#faff00',icon:'⚡',cd:1100},
-  {id:3,name:'얼음',  cost:2,type:'proj',dmg:4, spd:6, size:17,color:'#60a5fa',icon:'❄️',cd:550},
+  {id:2,name:'번개',  cost:3,type:'proj',dmg:8, spd:10,size:11,color:'#faff00',icon:'⚡',cd:1100},
+  {id:3,name:'얼음',  cost:2,type:'proj',dmg:4, spd:4.5, size:17,color:'#60a5fa',icon:'❄️',cd:550},
 ];
 const CREATURE_DEFS=[
   {id:0,name:'검사',  cost:2,atk:4,spd:2.8,icon:'⚔️',size:22,color:'#22c55e',hp:1},
@@ -790,14 +790,14 @@ class Character{
     this._tx=x;this._ty=y; // interpolation targets for remote
     this.hp=CFG.MAX_HP;this.maxHp=CFG.MAX_HP;
     this.mana=0;this.maxMana=CFG.MAX_MANA;
-    this.speed=(side==='player')?3.8:2.6;
+    this.speed=2.8;
     this.creatures=[];this.dangerTimer=0;
     this.basicCd=0;this.spellCd={};
     this.basicCdPct=0; // for remote display
   }
   isInDanger(){
     if(this.side==='player') return this.x>CFG.MID+40;
-    return this.x<CFG.MID-40;
+    return this.x>CFG.MID+40;
   }
   updateDanger(dt){
     if(this.isInDanger()){
