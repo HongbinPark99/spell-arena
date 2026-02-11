@@ -197,14 +197,15 @@ body{
 }
 
 /* ── ACTION BUTTONS (mobile) ── */
-#mobile-actions{
+#mobile-compact-ui{
   position:absolute;bottom:12px;right:12px;
-  display:none;flex-direction:column;gap:8px;
+  display:none;flex-direction:column;gap:6px;
   z-index:40;touch-action:none;
 }
 #mobile-skill-ui{
-  display:none;position:absolute;top:70px;left:12px;right:12px;
-  z-index:40;touch-action:none;flex-direction:column;gap:6px;
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.85);z-index:50;touch-action:none;flex-direction:column;
+  align-items:center;justify-content:center;
 }
 .mob-btn{
   width:58px;height:58px;border-radius:50%;
@@ -215,25 +216,33 @@ body{
   transition:transform .1s;
 }
 .mob-btn:active{transform:scale(.85);}
+.mob-compact-btn{
+  width:42px;height:42px;border-radius:8px;
+  border:2px solid rgba(255,255,255,.4);background:rgba(99,102,241,.6);
+  color:white;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;touch-action:none;user-select:none;
+  box-shadow:0 2px 12px rgba(0,0,0,.6);transition:transform .1s;
+}
+.mob-compact-btn:active{transform:scale(.9);}
 #mob-shoot{background:radial-gradient(circle at 35% 35%,#f97316,#dc2626);}
 #mob-spell1{background:radial-gradient(circle at 35% 35%,#c084fc,#7c3aed);}
 #mob-spell2{background:radial-gradient(circle at 35% 35%,#34d399,#059669);}
 
 /* Mobile skill buttons - Toggle system */
 .mob-toggle-group{
-  display:flex;gap:6px;width:100%;margin-bottom:6px;
+  display:flex;gap:6px;width:100%;max-width:300px;margin-bottom:12px;
 }
 .mob-toggle-btn{
-  flex:1;padding:8px 4px;border:1.5px solid rgba(168,85,247,.4);
+  flex:1;padding:10px 6px;border:1.5px solid rgba(168,85,247,.4);
   border-radius:6px;background:rgba(168,85,247,.1);color:#9ca3af;
-  font-size:clamp(10px,2vw,12px);font-weight:700;cursor:pointer;
+  font-size:14px;font-weight:700;cursor:pointer;
   touch-action:none;user-select:none;transition:all .2s;
 }
 .mob-toggle-btn.active{
   background:linear-gradient(135deg,#7c3aed,#ec4899);border-color:transparent;color:white;
 }
 .mob-skill-panel{
-  display:none;flex-wrap:wrap;gap:6px;
+  display:none;flex-wrap:wrap;gap:6px;width:100%;max-width:300px;
 }
 .mob-skill-panel.active{
   display:flex;
@@ -295,10 +304,10 @@ body{
   #joystick-stick{width:40px;height:40px;}
   #stick-arrow{font-size:12px;}
   
-  #mobile-actions{bottom:10px;right:10px;gap:6px;}
-  .mob-btn{width:48px;height:48px;font-size:18px;border-width:2px;}
+  #mobile-compact-ui{bottom:10px;right:10px;gap:6px;display:flex;}
+  .mob-compact-btn{width:40px;height:40px;font-size:14px;border-width:1.5px;}
   
-  #joystick-zone,#mobile-actions{display:flex;}
+  #joystick-zone{display:flex;}
 }
 </style>
 </head>
@@ -378,11 +387,10 @@ body{
           <div id="joystick-stick"><div id="stick-arrow">▲</div></div>
         </div>
       </div>
-      <!-- Mobile action buttons -->
-      <div id="mobile-actions">
-        <div class="mob-btn" id="mob-spell1">🔥</div>
-        <div class="mob-btn" id="mob-shoot">💥</div>
-        <div class="mob-btn" id="mob-spell2">⚡</div>
+      <!-- Mobile compact buttons (small, bottom-right) -->
+      <div id="mobile-compact-ui">
+        <button class="mob-compact-btn" id="mob-quick-spell">Q</button>
+        <button class="mob-compact-btn" id="mob-quick-creature">W</button>
       </div>
       <!-- 모바일 토글 & 스킬 선택 -->
       <div id="mobile-skill-ui">
@@ -600,6 +608,33 @@ document.getElementById('mob-spell1').addEventListener('click',()=>G.castSpell(0
 document.getElementById('mob-spell2').addEventListener('touchstart',e=>{e.preventDefault();G.castSpell(2);},{passive:false});
 document.getElementById('mob-spell2').addEventListener('click',()=>G.castSpell(2));
 
+// 모바일 콤팩트 버튼 - 스펠/크리처 선택 모달 열기
+document.getElementById('mob-quick-spell').addEventListener('click',()=>{
+  const modal=document.getElementById('mobile-skill-ui');
+  if(modal.style.display==='flex'){
+    modal.style.display='none';
+  }else{
+    modal.style.display='flex';
+    document.getElementById('toggle-spell-mobile').classList.add('active');
+    document.getElementById('toggle-creature-mobile').classList.remove('active');
+    document.getElementById('spell-panel-mobile').classList.add('active');
+    document.getElementById('creature-panel-mobile').classList.remove('active');
+  }
+});
+
+document.getElementById('mob-quick-creature').addEventListener('click',()=>{
+  const modal=document.getElementById('mobile-skill-ui');
+  if(modal.style.display==='flex'){
+    modal.style.display='none';
+  }else{
+    modal.style.display='flex';
+    document.getElementById('toggle-spell-mobile').classList.remove('active');
+    document.getElementById('toggle-creature-mobile').classList.add('active');
+    document.getElementById('spell-panel-mobile').classList.remove('active');
+    document.getElementById('creature-panel-mobile').classList.add('active');
+  }
+});
+
 // 모바일 토글 버튼 - 스펠/크리처 선택
 document.getElementById('toggle-spell-mobile').addEventListener('click',()=>{
   document.getElementById('toggle-spell-mobile').classList.add('active');
@@ -620,6 +655,7 @@ document.querySelectorAll('#spell-panel-mobile .mob-skill-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const spellId=parseInt(btn.dataset.spell);
     G.castSpell(spellId);
+    document.getElementById('mobile-skill-ui').style.display='none';
   });
 });
 
@@ -628,7 +664,15 @@ document.querySelectorAll('#creature-panel-mobile .mob-skill-btn').forEach(btn=>
   btn.addEventListener('click',()=>{
     const creatureId=parseInt(btn.dataset.creature);
     G.summon(creatureId);
+    document.getElementById('mobile-skill-ui').style.display='none';
   });
+});
+
+// 모바일 스킬 UI 배경 클릭으로 닫기
+document.getElementById('mobile-skill-ui').addEventListener('click',(e)=>{
+  if(e.target.id==='mobile-skill-ui'){
+    document.getElementById('mobile-skill-ui').style.display='none';
+  }
 });
 
 // ══════════════════════════════════════════════
