@@ -206,8 +206,43 @@ body{
 
 /* Show on touch/narrow (Galaxy Fold inner ~280px, outer ~375px, regular mobile ≤820px) */
 @media (max-width:900px),(pointer:coarse),(max-device-width:900px){
-  .side-panel{width:clamp(50px,8vw,72px);}
-  .action-btn{font-size:13px;padding:5px 2px;}
+  #menuScreen{padding:12px;}
+  #menuScreen h1{font-size:clamp(16px,4vw,32px);}
+  .tagline{font-size:clamp(8px,1.3vw,11px);}
+  .mode-tabs{gap:6px;}
+  .tab-btn{padding:8px 12px;font-size:clamp(11px,1.8vw,13px);}
+  .info-grid{grid-template-columns:1fr;gap:5px;font-size:clamp(8px,1.3vw,11px);}
+  .info-card{padding:7px;}
+  .primary-btn{padding:8px 20px;font-size:clamp(12px,1.8vw,14px);}
+  .mp-panel{padding:10px;}
+  .mp-input{padding:8px 10px;font-size:14px;}
+  .room-code{font-size:clamp(20px,4vw,28px);}
+  
+  #hud{padding:3px 4px;gap:3px;}
+  .hud-bars{gap:2px;}
+  .hud-bar-row{font-size:7px;gap:2px;}
+  .hud-track{height:4px;min-width:15px;}
+  .hud-val{font-size:7px;}
+  #round-info{font-size:6px;}
+  #timer{font-size:12px;}
+  .pips{gap:2px;}
+  .pip{width:6px;height:6px;border-width:1px;}
+  
+  .side-panel{width:clamp(45px,7vw,65px);gap:3px;padding:4px 3px;}
+  .panel-title{font-size:7px;margin-bottom:1px;}
+  .action-btn{font-size:12px;padding:4px 2px;gap:1px;}
+  .action-btn .key{font-size:5px;}
+  .action-btn .cost{font-size:6px;}
+  .cd-mask{font-size:8px;}
+  
+  #joystick-zone{width:100px;height:100px;bottom:10px;left:10px;}
+  #joystick-base{border-width:2px;}
+  #joystick-stick{width:40px;height:40px;}
+  #stick-arrow{font-size:12px;}
+  
+  #mobile-actions{bottom:10px;right:10px;gap:6px;}
+  .mob-btn{width:48px;height:48px;font-size:18px;border-width:2px;}
+  
   #joystick-zone,#mobile-actions{display:flex;}
 }
 </style>
@@ -323,10 +358,10 @@ const CFG={
   NET_HZ:30,          // 30hz sync - smoother
 };
 const SPELL_DEFS=[
-  {id:0,name:'화염구',cost:2,type:'proj',dmg:5, spd:5, size:14,color:'#ff4444',icon:'🔥',cd:700},
+  {id:0,name:'화염구',cost:2,type:'proj',dmg:5, spd:3.5, size:14,color:'#ff4444',icon:'🔥',cd:700},
   {id:1,name:'치유',  cost:2,type:'heal',heal:5,                icon:'💚',      cd:2500},
-  {id:2,name:'번개',  cost:3,type:'proj',dmg:8, spd:10,size:11,color:'#faff00',icon:'⚡',cd:1100},
-  {id:3,name:'얼음',  cost:2,type:'proj',dmg:4, spd:4.5, size:17,color:'#60a5fa',icon:'❄️',cd:550},
+  {id:2,name:'번개',  cost:3,type:'proj',dmg:8, spd:7,size:11,color:'#faff00',icon:'⚡',cd:1100},
+  {id:3,name:'얼음',  cost:2,type:'proj',dmg:4, spd:3, size:17,color:'#60a5fa',icon:'❄️',cd:550},
 ];
 const CREATURE_DEFS=[
   {id:0,name:'검사',  cost:2,atk:4,spd:2.8,icon:'⚔️',size:22,color:'#22c55e',hp:1},
@@ -796,7 +831,10 @@ class Character{
     this.basicCdPct=0; // for remote display
   }
   isInDanger(){
-    if(this.side==='player') return this.x>CFG.MID+40;
+    if(this.side==='player'){
+      if(this.facing==='right') return this.x>CFG.MID+40;
+      else return this.x<CFG.MID-40;
+    }
     return this.x>CFG.MID+40;
   }
   updateDanger(dt){
@@ -835,7 +873,7 @@ class Character{
     const T=Date.now();
     const{x,y,color,facing,side}=this;
     const isMoving=(side==='player')
-      ?(joy.moving||keys['ArrowLeft']||keys['ArrowRight']||keys['ArrowUp']||keys['ArrowDown']||keys['KeyA']||keys['KeyD']||keys['KeyW']||keys['KeyS'])
+      ?(joy.moving||keys['ArrowLeft']||keys['ArrowRight']||keys['ArrowUp']||keys['ArrowDown'])
       :true;
     const leg=isMoving?Math.sin(T*.012)*11:0;
     const arm=isMoving?Math.sin(T*.012)*9:0;
@@ -1068,9 +1106,11 @@ const G={
     if(p.spellCd[i]&&now<p.spellCd[i]) return;
     if(def.type==='proj'){
       const dir=p.facing==='right'?1:-1;
+      let vy=0;
+      if(i===3) vy=Math.sin(now*0.006)*4; // 얼음: 위아래로 움직임
       const pj=new Projectile({
         x:p.x+dir*30,y:p.y-8,
-        vx:dir*def.spd,vy:0,
+        vx:dir*def.spd,vy:vy,
         dmg:def.dmg,size:def.size,color:def.color,
         owner:'player',
       });
@@ -1123,10 +1163,10 @@ const G={
     let dx=0,dy=0;
     if(joy.moving){dx=joy.dx;dy=joy.dy;}
     else{
-      if(keys['ArrowLeft']||keys['KeyA'])  dx-=1;
-      if(keys['ArrowRight']||keys['KeyD']) dx+=1;
-      if(keys['ArrowUp']||keys['KeyW'])    dy-=1;
-      if(keys['ArrowDown']||keys['KeyS'])  dy+=1;
+      if(keys['ArrowLeft'])  dx-=1;
+      if(keys['ArrowRight']) dx+=1;
+      if(keys['ArrowUp'])    dy-=1;
+      if(keys['ArrowDown'])  dy+=1;
       if(dx&&dy){dx*=.707;dy*=.707;}
     }
     if(dx>0) p.facing='right';
