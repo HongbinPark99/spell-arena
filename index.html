@@ -191,6 +191,12 @@ body{
   display:none;flex-direction:column;gap:8px;
   z-index:40;touch-action:none;
 }
+#mobile-spell-buttons{
+  display:none;position:absolute;bottom:12px;left:12px;right:12px;
+  padding:8px;z-index:40;touch-action:none;
+  flex-direction:column;gap:8px;background:rgba(10,10,20,.9);
+  border:1px solid rgba(168,85,247,.3);border-radius:8px;
+}
 .mob-btn{
   width:58px;height:58px;border-radius:50%;
   border:2.5px solid rgba(255,255,255,.3);
@@ -203,6 +209,35 @@ body{
 #mob-shoot{background:radial-gradient(circle at 35% 35%,#f97316,#dc2626);}
 #mob-spell1{background:radial-gradient(circle at 35% 35%,#c084fc,#7c3aed);}
 #mob-spell2{background:radial-gradient(circle at 35% 35%,#34d399,#059669);}
+
+/* Mobile skill buttons - Toggle system */
+.mob-toggle-group{
+  display:flex;gap:6px;width:100%;margin-bottom:6px;
+}
+.mob-toggle-btn{
+  flex:1;padding:8px 4px;border:1.5px solid rgba(168,85,247,.4);
+  border-radius:6px;background:rgba(168,85,247,.1);color:#9ca3af;
+  font-size:clamp(10px,2vw,12px);font-weight:700;cursor:pointer;
+  touch-action:none;user-select:none;transition:all .2s;
+}
+.mob-toggle-btn.active{
+  background:linear-gradient(135deg,#7c3aed,#ec4899);border-color:transparent;color:white;
+}
+.mob-skill-panel{
+  display:none;flex-wrap:wrap;gap:6px;
+}
+.mob-skill-panel.active{
+  display:flex;
+}
+.mob-skill-btn{
+  flex:1;min-width:calc(50% - 3px);padding:10px 6px;border:1.5px solid rgba(168,85,247,.5);
+  border-radius:8px;background:rgba(168,85,247,.15);color:white;
+  font-size:clamp(9px,2vw,11px);font-weight:700;cursor:pointer;
+  touch-action:none;user-select:none;transition:transform .1s;
+  box-shadow:0 2px 8px rgba(0,0,0,.4);
+}
+.mob-skill-btn:active{transform:scale(.9);}
+.mob-skill-btn:disabled{opacity:.4;cursor:not-allowed;}
 
 /* Show on touch/narrow (Galaxy Fold inner ~280px, outer ~375px, regular mobile ≤820px) */
 @media (max-width:900px),(pointer:coarse),(max-device-width:900px){
@@ -228,12 +263,17 @@ body{
   .pips{gap:2px;}
   .pip{width:6px;height:6px;border-width:1px;}
   
-  .side-panel{width:clamp(45px,7vw,65px);gap:3px;padding:4px 3px;}
+  .side-panel{display:none;} /* 모바일에서는 사이드 패널 숨김 */
   .panel-title{font-size:7px;margin-bottom:1px;}
   .action-btn{font-size:12px;padding:4px 2px;gap:1px;}
   .action-btn .key{font-size:5px;}
   .action-btn .cost{font-size:6px;}
   .cd-mask{font-size:8px;}
+  
+  #mobile-spell-buttons{display:flex;} /* 모바일에서는 스펠/크리처 버튼 표시 */
+  .mob-toggle-btn{padding:10px 6px;font-size:clamp(10px,2.5vw,12px);}
+  .mob-skill-panel{gap:8px;}
+  .mob-skill-btn{padding:12px 8px;font-size:clamp(10px,2.2vw,12px);}
   
   #joystick-zone{width:100px;height:100px;bottom:10px;left:10px;}
   #joystick-base{border-width:2px;}
@@ -324,6 +364,28 @@ body{
         <div class="mob-btn" id="mob-spell1">🔥</div>
         <div class="mob-btn" id="mob-shoot">💥</div>
         <div class="mob-btn" id="mob-spell2">⚡</div>
+      </div>
+      <!-- Mobile spell/creature buttons -->
+      <div id="mobile-spell-buttons">
+        <!-- Main toggle buttons -->
+        <div class="mob-toggle-group">
+          <button class="mob-toggle-btn active" id="toggle-spell">Q 스펠</button>
+          <button class="mob-toggle-btn" id="toggle-creature">W 크리처</button>
+        </div>
+        <!-- Spell selection panel -->
+        <div class="mob-skill-panel active" id="spell-panel">
+          <button class="mob-skill-btn" data-spell="0">Q 화염구</button>
+          <button class="mob-skill-btn" data-spell="1">W 치유</button>
+          <button class="mob-skill-btn" data-spell="2">E 번개</button>
+          <button class="mob-skill-btn" data-spell="3">R 얼음</button>
+        </div>
+        <!-- Creature selection panel -->
+        <div class="mob-skill-panel" id="creature-panel">
+          <button class="mob-skill-btn" data-creature="0">Q 검사</button>
+          <button class="mob-skill-btn" data-creature="1">W 궁수</button>
+          <button class="mob-skill-btn" data-creature="2">E 방패병</button>
+          <button class="mob-skill-btn" data-creature="3">R 마법사</button>
+        </div>
       </div>
     </div>
   </div>
@@ -518,6 +580,37 @@ document.getElementById('mob-spell1').addEventListener('touchstart',e=>{e.preven
 document.getElementById('mob-spell1').addEventListener('click',()=>G.castSpell(0));
 document.getElementById('mob-spell2').addEventListener('touchstart',e=>{e.preventDefault();G.castSpell(2);},{passive:false});
 document.getElementById('mob-spell2').addEventListener('click',()=>G.castSpell(2));
+
+// 모바일 토글 버튼 - 스펠/크리처 선택
+document.getElementById('toggle-spell').addEventListener('click',()=>{
+  document.getElementById('toggle-spell').classList.add('active');
+  document.getElementById('toggle-creature').classList.remove('active');
+  document.getElementById('spell-panel').classList.add('active');
+  document.getElementById('creature-panel').classList.remove('active');
+});
+
+document.getElementById('toggle-creature').addEventListener('click',()=>{
+  document.getElementById('toggle-spell').classList.remove('active');
+  document.getElementById('toggle-creature').classList.add('active');
+  document.getElementById('spell-panel').classList.remove('active');
+  document.getElementById('creature-panel').classList.add('active');
+});
+
+// 모바일 스킬 버튼들 - 스펠
+document.querySelectorAll('#spell-panel .mob-skill-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const spellId=parseInt(btn.dataset.spell);
+    G.castSpell(spellId);
+  });
+});
+
+// 모바일 스킬 버튼들 - 크리처
+document.querySelectorAll('#creature-panel .mob-skill-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const creatureId=parseInt(btn.dataset.creature);
+    G.summon(creatureId);
+  });
+});
 
 // ══════════════════════════════════════════════
 //  NETWORK (PeerJS) - FIXED RELIABLE SYNC
@@ -734,13 +827,19 @@ class Particle{
 }
 
 class Projectile{
-  constructor({x,y,vx,vy,dmg,size,color,owner,fromNet}){
-    Object.assign(this,{x,y,vx,vy,dmg,size,color,owner,fromNet:fromNet||false,dead:false});
+  constructor({x,y,vx,vy,dmg,size,color,owner,fromNet,spellId}){
+    Object.assign(this,{x,y,vx,vy,dmg,size,color,owner,fromNet:fromNet||false,spellId:spellId||null,dead:false,createdAt:performance.now()});
     this._trail=[];
   }
   update(){
     this._trail.unshift({x:this.x,y:this.y});
     if(this._trail.length>5) this._trail.pop();
+    // 얼음 스펠은 지속적으로 위아래로 움직임
+    if(this.spellId===3){
+      const elapsed=performance.now()-this.createdAt;
+      const vy_wave=Math.sin(elapsed*0.01)*4;
+      this.y+=vy_wave;
+    }
     this.x+=this.vx;this.y+=this.vy;
     if(this.x<-20||this.x>CFG.W+20||this.y<-20||this.y>CFG.H+20) this.dead=true;
   }
@@ -791,7 +890,17 @@ class Creature{
     if(this.shield||this.spd===0) return;
     const dx=target.x-this.x,dy=target.y-this.y,d=Math.hypot(dx,dy);
     if(d>28){this.x+=(dx/d)*this.spd;this.y+=(dy/d)*this.spd;}
-    else{target.hp=Math.max(0,target.hp-this.atk);this.dead=true;}
+    else{
+      // 방패병이 있으면 방패병이 먼저 데미지를 받음
+      const shield=target.creatures.find(c=>c.shield&&!c.dead);
+      if(shield){
+        shield.currentHp=Math.max(0,shield.currentHp-this.atk);
+        if(shield.currentHp<=0) shield.dead=true;
+      } else {
+        target.hp=Math.max(0,target.hp-this.atk);
+      }
+      this.dead=true;
+    }
     this._tx=this.x;this._ty=this.y;
   }
   // For remote creatures: interpolate toward received position
@@ -831,11 +940,13 @@ class Character{
     this.basicCdPct=0; // for remote display
   }
   isInDanger(){
+    // 플레이어는 항상 왼쪽이 안전구역(160), 오른쪽이 위험구역
+    // 상대방(AI/Remote)는 항상 오른쪽이 안전구역(W-160), 왼쪽이 위험구역
     if(this.side==='player'){
-      if(this.facing==='right') return this.x>CFG.MID+40;
-      else return this.x<CFG.MID-40;
+      return this.x>CFG.MID+40; // 오른쪽이 위험
+    } else {
+      return this.x<CFG.MID-40; // 왼쪽이 위험
     }
-    return this.x>CFG.MID+40;
   }
   updateDanger(dt){
     if(this.isInDanger()){
@@ -1106,13 +1217,12 @@ const G={
     if(p.spellCd[i]&&now<p.spellCd[i]) return;
     if(def.type==='proj'){
       const dir=p.facing==='right'?1:-1;
-      let vy=0;
-      if(i===3) vy=Math.sin(now*0.006)*4; // 얼음: 위아래로 움직임
       const pj=new Projectile({
         x:p.x+dir*30,y:p.y-8,
-        vx:dir*def.spd,vy:vy,
+        vx:dir*def.spd,vy:0,
         dmg:def.dmg,size:def.size,color:def.color,
         owner:'player',
+        spellId:i,
       });
       this.projectiles.push(pj);
       // Send projectile to remote - use short key names to save bandwidth
@@ -1368,10 +1478,16 @@ const G={
       if(rem>0){cd.style.display='flex';cd.textContent=(rem/1000).toFixed(1)+'s';}
       else cd.style.display='none';
       btn.disabled=p.mana<SPELL_DEFS[i].cost;
+      // 모바일 스펠 버튼도 업데이트
+      const mobBtn=document.querySelector(`#spell-panel .mob-skill-btn[data-spell="${i}"]`);
+      if(mobBtn) mobBtn.disabled=p.mana<SPELL_DEFS[i].cost;
     });
     CREATURE_DEFS.forEach((_,i)=>{
       const btn=document.getElementById(`crb${i}`);
       if(btn) btn.disabled=p.mana<CREATURE_DEFS[i].cost||p.creatures.length>=8;
+      // 모바일 크리처 버튼도 업데이트
+      const mobBtn=document.querySelector(`#creature-panel .mob-skill-btn[data-creature="${i}"]`);
+      if(mobBtn) mobBtn.disabled=p.mana<CREATURE_DEFS[i].cost||p.creatures.length>=8;
     });
   },
 
