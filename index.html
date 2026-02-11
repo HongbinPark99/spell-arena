@@ -81,6 +81,17 @@ body{
   border-right:1px solid rgba(168,85,247,.18);
 }
 .side-panel.right{border-right:none;border-left:1px solid rgba(168,85,247,.18);}
+.skill-toggle-panel{
+  position:relative;flex-wrap:wrap;align-content:flex-start;
+  max-width:400px;max-height:100%;overflow-y:auto;
+}
+.skill-toggle-panel #skill-toggle-btn{
+  width:100%;padding:6px 3px;margin-bottom:3px;
+  border:1.5px solid rgba(168,85,247,.4);border-radius:6px;
+  background:linear-gradient(135deg,#7c3aed,#ec4899);color:white;
+  font-size:9px;font-weight:700;cursor:pointer;
+  display:none; /* PC에서만 보여야 함 */
+}
 .panel-title{font-size:8px;color:#a855f7;font-weight:700;text-align:center;margin-bottom:2px;}
 .action-btn{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -191,11 +202,9 @@ body{
   display:none;flex-direction:column;gap:8px;
   z-index:40;touch-action:none;
 }
-#mobile-spell-buttons{
-  display:none;position:absolute;bottom:12px;left:12px;right:12px;
-  padding:8px;z-index:40;touch-action:none;
-  flex-direction:column;gap:8px;background:rgba(10,10,20,.9);
-  border:1px solid rgba(168,85,247,.3);border-radius:8px;
+#mobile-skill-ui{
+  display:none;position:absolute;top:70px;left:12px;right:12px;
+  z-index:40;touch-action:none;flex-direction:column;gap:6px;
 }
 .mob-btn{
   width:58px;height:58px;border-radius:50%;
@@ -270,10 +279,16 @@ body{
   .action-btn .cost{font-size:6px;}
   .cd-mask{font-size:8px;}
   
-  #mobile-spell-buttons{display:flex;} /* 모바일에서는 스펠/크리처 버튼 표시 */
-  .mob-toggle-btn{padding:10px 6px;font-size:clamp(10px,2.5vw,12px);}
-  .mob-skill-panel{gap:8px;}
-  .mob-skill-btn{padding:12px 8px;font-size:clamp(10px,2.2vw,12px);}
+  #mobile-skill-ui{display:flex;} /* 모바일에서는 스킬 UI 표시 */
+  .mob-toggle-group{display:flex;gap:6px;width:100%;}
+  .mob-toggle-btn{flex:1;padding:8px 4px;font-size:clamp(10px,2vw,11px);}
+  .mob-skill-panel{display:none;flex-wrap:wrap;gap:5px;}
+  .mob-skill-panel.active{display:flex;}
+  .mob-skill-btn{flex:1;min-width:calc(25% - 4px);aspect-ratio:1;padding:8px;
+    border:1.5px solid rgba(168,85,247,.4);border-radius:6px;
+    background:rgba(168,85,247,.1);color:white;font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;}
+  .mob-skill-btn:active{transform:scale(.9);}
   
   #joystick-zone{width:100px;height:100px;bottom:10px;left:10px;}
   #joystick-base{border-width:2px;}
@@ -328,7 +343,11 @@ body{
 
 <!-- ══ GAME ══ -->
 <div id="gameScreen" class="screen hidden">
-  <div class="side-panel" id="spellPanel"><div class="panel-title">🔥 스펠</div></div>
+  <!-- 통합 스킬 패널 (PC: 중앙, 모바일: 상단) -->
+  <div class="side-panel skill-toggle-panel" id="skillPanel">
+    <div class="panel-title" id="skill-panel-title">Q 스펠</div>
+    <button style="display:none;" id="skill-toggle-btn">Q/W</button>
+  </div>
   <div id="center-col">
     <div id="hud">
       <div class="hud-side">
@@ -365,31 +384,30 @@ body{
         <div class="mob-btn" id="mob-shoot">💥</div>
         <div class="mob-btn" id="mob-spell2">⚡</div>
       </div>
-      <!-- Mobile spell/creature buttons -->
-      <div id="mobile-spell-buttons">
-        <!-- Main toggle buttons -->
+      <!-- 모바일 토글 & 스킬 선택 -->
+      <div id="mobile-skill-ui">
+        <!-- 토글 버튼 (상단 중앙) -->
         <div class="mob-toggle-group">
-          <button class="mob-toggle-btn active" id="toggle-spell">Q 스펠</button>
-          <button class="mob-toggle-btn" id="toggle-creature">W 크리처</button>
+          <button class="mob-toggle-btn active" id="toggle-spell-mobile">Q 스펠</button>
+          <button class="mob-toggle-btn" id="toggle-creature-mobile">W 크리처</button>
         </div>
-        <!-- Spell selection panel -->
-        <div class="mob-skill-panel active" id="spell-panel">
-          <button class="mob-skill-btn" data-spell="0">Q 화염구</button>
-          <button class="mob-skill-btn" data-spell="1">W 치유</button>
-          <button class="mob-skill-btn" data-spell="2">E 번개</button>
-          <button class="mob-skill-btn" data-spell="3">R 얼음</button>
+        <!-- 스펠 선택 패널 -->
+        <div class="mob-skill-panel active" id="spell-panel-mobile">
+          <button class="mob-skill-btn" data-spell="0">🔥</button>
+          <button class="mob-skill-btn" data-spell="1">💚</button>
+          <button class="mob-skill-btn" data-spell="2">⚡</button>
+          <button class="mob-skill-btn" data-spell="3">❄️</button>
         </div>
-        <!-- Creature selection panel -->
-        <div class="mob-skill-panel" id="creature-panel">
-          <button class="mob-skill-btn" data-creature="0">Q 검사</button>
-          <button class="mob-skill-btn" data-creature="1">W 궁수</button>
-          <button class="mob-skill-btn" data-creature="2">E 방패병</button>
-          <button class="mob-skill-btn" data-creature="3">R 마법사</button>
+        <!-- 크리처 선택 패널 -->
+        <div class="mob-skill-panel" id="creature-panel-mobile">
+          <button class="mob-skill-btn" data-creature="0">⚔️</button>
+          <button class="mob-skill-btn" data-creature="1">🏹</button>
+          <button class="mob-skill-btn" data-creature="2">🛡️</button>
+          <button class="mob-skill-btn" data-creature="3">🔮</button>
         </div>
       </div>
     </div>
   </div>
-  <div class="side-panel right" id="creaturePanel"><div class="panel-title">⚔️ 크리처</div></div>
 </div>
 
 <!-- ══ OVERLAY ══ -->
@@ -470,6 +488,7 @@ function applyMobileUI(){
   const mobile=isMobileDevice();
   document.getElementById('joystick-zone').style.display=mobile?'block':'none';
   document.getElementById('mobile-actions').style.display=mobile?'flex':'none';
+  document.getElementById('mobile-skill-ui').style.display=mobile?'flex':'none';
 }
 window.addEventListener('resize',applyMobileUI);
 
@@ -582,22 +601,22 @@ document.getElementById('mob-spell2').addEventListener('touchstart',e=>{e.preven
 document.getElementById('mob-spell2').addEventListener('click',()=>G.castSpell(2));
 
 // 모바일 토글 버튼 - 스펠/크리처 선택
-document.getElementById('toggle-spell').addEventListener('click',()=>{
-  document.getElementById('toggle-spell').classList.add('active');
-  document.getElementById('toggle-creature').classList.remove('active');
-  document.getElementById('spell-panel').classList.add('active');
-  document.getElementById('creature-panel').classList.remove('active');
+document.getElementById('toggle-spell-mobile').addEventListener('click',()=>{
+  document.getElementById('toggle-spell-mobile').classList.add('active');
+  document.getElementById('toggle-creature-mobile').classList.remove('active');
+  document.getElementById('spell-panel-mobile').classList.add('active');
+  document.getElementById('creature-panel-mobile').classList.remove('active');
 });
 
-document.getElementById('toggle-creature').addEventListener('click',()=>{
-  document.getElementById('toggle-spell').classList.remove('active');
-  document.getElementById('toggle-creature').classList.add('active');
-  document.getElementById('spell-panel').classList.remove('active');
-  document.getElementById('creature-panel').classList.add('active');
+document.getElementById('toggle-creature-mobile').addEventListener('click',()=>{
+  document.getElementById('toggle-spell-mobile').classList.remove('active');
+  document.getElementById('toggle-creature-mobile').classList.add('active');
+  document.getElementById('spell-panel-mobile').classList.remove('active');
+  document.getElementById('creature-panel-mobile').classList.add('active');
 });
 
 // 모바일 스킬 버튼들 - 스펠
-document.querySelectorAll('#spell-panel .mob-skill-btn').forEach(btn=>{
+document.querySelectorAll('#spell-panel-mobile .mob-skill-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const spellId=parseInt(btn.dataset.spell);
     G.castSpell(spellId);
@@ -605,7 +624,7 @@ document.querySelectorAll('#spell-panel .mob-skill-btn').forEach(btn=>{
 });
 
 // 모바일 스킬 버튼들 - 크리처
-document.querySelectorAll('#creature-panel .mob-skill-btn').forEach(btn=>{
+document.querySelectorAll('#creature-panel-mobile .mob-skill-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const creatureId=parseInt(btn.dataset.creature);
     G.summon(creatureId);
@@ -931,6 +950,7 @@ class Character{
     this.x=x;this.y=y;this.color=color;this.label=label;
     this.facing=facing;
     this.side=side;
+    this.startX=x; // 초기 위치 저장 (신뢰 기준)
     this._tx=x;this._ty=y; // interpolation targets for remote
     this.hp=CFG.MAX_HP;this.maxHp=CFG.MAX_HP;
     this.mana=0;this.maxMana=CFG.MAX_MANA;
@@ -940,13 +960,11 @@ class Character{
     this.basicCdPct=0; // for remote display
   }
   isInDanger(){
-    // 플레이어는 항상 왼쪽이 안전구역(160), 오른쪽이 위험구역
-    // 상대방(AI/Remote)는 항상 오른쪽이 안전구역(W-160), 왼쪽이 위험구역
-    if(this.side==='player'){
-      return this.x>CFG.MID+40; // 오른쪽이 위험
-    } else {
-      return this.x<CFG.MID-40; // 왼쪽이 위험
-    }
+    // 초기 위치 기준으로 안전/위험 구역 판단
+    // 시작 위치: 오른쪽(startX > CFG.MID) → 오른쪽 안전, 왼쪽 위험
+    // 시작 위치: 왼쪽(startX < CFG.MID) → 왼쪽 안전, 오른쪽 위험
+    if(this.startX>CFG.MID) return this.x<CFG.MID-40; // 오른쪽에서 시작: 왼쪽이 위험
+    else return this.x>CFG.MID+40; // 왼쪽에서 시작: 오른쪽이 위험
   }
   updateDanger(dt){
     if(this.isInDanger()){
@@ -1110,26 +1128,48 @@ const G={
   _ivals:{},_lastT:0,
 
   buildButtons(){
-    const sp=document.getElementById('spellPanel');
-    const cp=document.getElementById('creaturePanel');
-    sp.querySelectorAll('.action-btn').forEach(b=>b.remove());
-    cp.querySelectorAll('.action-btn').forEach(b=>b.remove());
+    const panel=document.getElementById('skillPanel');
+    panel.querySelectorAll('.action-btn').forEach(b=>b.remove());
+    
+    // PC 토글 버튼 설정
+    const toggleBtn=document.getElementById('skill-toggle-btn');
+    const panelTitle=document.getElementById('skill-panel-title');
+    let isShowingSpells=true;
+    
+    toggleBtn.onclick=()=>{
+      isShowingSpells=!isShowingSpells;
+      panelTitle.textContent=isShowingSpells?'Q 스펠':'W 크리처';
+      panel.querySelectorAll('.action-btn').forEach(btn=>{
+        const isSpell=btn.classList.contains('spell');
+        btn.style.display=(isShowingSpells&&isSpell)||(!isShowingSpells&&!isSpell)?'flex':'none';
+      });
+    };
+    
+    // PC: 스펠 버튼 추가
     SPELL_DEFS.forEach((def,i)=>{
       const btn=document.createElement('button');
       btn.className='action-btn spell';btn.id=`spb${i}`;
       btn.innerHTML=`<span class="key">${i+1}</span>${def.icon}<span class="cost">💧${def.cost}</span>`;
       btn.addEventListener('pointerdown',e=>{e.preventDefault();G.castSpell(i);});
       const cd=document.createElement('div');cd.className='cd-mask';cd.id=`spc${i}`;cd.style.display='none';
-      btn.appendChild(cd);sp.appendChild(btn);
+      btn.appendChild(cd);panel.appendChild(btn);
     });
+    
+    // PC: 크리처 버튼 추가
     ['Q','W','E','R'].forEach((k,i)=>{
       const def=CREATURE_DEFS[i];
       const btn=document.createElement('button');
       btn.className='action-btn creature';btn.id=`crb${i}`;
       btn.innerHTML=`<span class="key">${k}</span>${def.icon}<span class="cost">💧${def.cost}</span>`;
       btn.addEventListener('pointerdown',e=>{e.preventDefault();G.summon(i);});
-      cp.appendChild(btn);
+      btn.style.display='none'; // 초기에는 숨김
+      panel.appendChild(btn);
     });
+    
+    // PC에서만 토글 버튼 보이기
+    if(!isMobileDevice()) {
+      toggleBtn.style.display='block';
+    }
   },
 
   _clearIvals(){
@@ -1479,14 +1519,14 @@ const G={
       else cd.style.display='none';
       btn.disabled=p.mana<SPELL_DEFS[i].cost;
       // 모바일 스펠 버튼도 업데이트
-      const mobBtn=document.querySelector(`#spell-panel .mob-skill-btn[data-spell="${i}"]`);
+      const mobBtn=document.querySelector(`#spell-panel-mobile .mob-skill-btn[data-spell="${i}"]`);
       if(mobBtn) mobBtn.disabled=p.mana<SPELL_DEFS[i].cost;
     });
     CREATURE_DEFS.forEach((_,i)=>{
       const btn=document.getElementById(`crb${i}`);
       if(btn) btn.disabled=p.mana<CREATURE_DEFS[i].cost||p.creatures.length>=8;
       // 모바일 크리처 버튼도 업데이트
-      const mobBtn=document.querySelector(`#creature-panel .mob-skill-btn[data-creature="${i}"]`);
+      const mobBtn=document.querySelector(`#creature-panel-mobile .mob-skill-btn[data-creature="${i}"]`);
       if(mobBtn) mobBtn.disabled=p.mana<CREATURE_DEFS[i].cost||p.creatures.length>=8;
     });
   },
