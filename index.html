@@ -212,8 +212,8 @@ body{
 }
 #mobile-skill-ui{
   display:none;position:fixed;top:0;left:0;right:0;bottom:0;
-  background:rgba(0,0,0,.85);z-index:50;touch-action:none;flex-direction:column;
-  align-items:center;justify-content:center;
+  background:rgba(0,0,0,.85);z-index:100;touch-action:none;flex-direction:column;
+  align-items:center;justify-content:center;pointer-events:auto;
 }
 .mob-btn{
   width:58px;height:58px;border-radius:50%;
@@ -558,39 +558,44 @@ window.addEventListener('keydown',e=>{
     if(selectorTimer) clearTimeout(selectorTimer);
     selectorTimer = setTimeout(()=>{ selectorMode=null; selectorTimer=null; }, SELECTOR_TIMEOUT);
     
-    // On PC: show side panel
-    const panel=document.getElementById('skillPanel');
-    const panelTitle=document.getElementById('skill-panel-title');
-    if(panel && panelTitle && !isMobileDevice()){
-      if(selectorMode==='spell') panelTitle.textContent='Q 스펠';
-      else panelTitle.textContent='W 크리처';
-      // Use visibility instead of hidden class to avoid layout shifts
-      panel.querySelectorAll('.action-btn').forEach(btn=>{
-        btn.style.visibility='hidden';
-      });
-      const toShow = selectorMode==='spell' ? 
-        panel.querySelectorAll('.action-btn.spell') : 
-        panel.querySelectorAll('.action-btn.creature');
-      toShow.forEach(btn=>btn.style.visibility='visible');
-      
-      // restore (hide all) after timeout
-      setTimeout(()=>{ if(!selectorMode){ panel.querySelectorAll('.action-btn').forEach(btn=>btn.style.visibility='hidden'); panelTitle.textContent='Q 스펠';} }, SELECTOR_TIMEOUT+50);
-    }
+    const isMobile = isMobileDevice();
     
-    // On mobile: show skill UI modal and switch tabs
-    const mobileUI=document.getElementById('mobile-skill-ui');
-    if(mobileUI && isMobileDevice()){
-      mobileUI.style.display='flex';
-      if(selectorMode==='spell'){
-        document.getElementById('toggle-spell-mobile').classList.add('active');
-        document.getElementById('toggle-creature-mobile').classList.remove('active');
-        document.getElementById('spell-panel-mobile').classList.add('active');
-        document.getElementById('creature-panel-mobile').classList.remove('active');
-      } else {
-        document.getElementById('toggle-spell-mobile').classList.remove('active');
-        document.getElementById('toggle-creature-mobile').classList.add('active');
-        document.getElementById('spell-panel-mobile').classList.remove('active');
-        document.getElementById('creature-panel-mobile').classList.add('active');
+    if(!isMobile){
+      // On PC: show side panel
+      const panel=document.getElementById('skillPanel');
+      const panelTitle=document.getElementById('skill-panel-title');
+      if(panel && panelTitle){
+        if(selectorMode==='spell') panelTitle.textContent='Q 스펠';
+        else panelTitle.textContent='W 크리처';
+        // Use visibility instead of hidden class to avoid layout shifts
+        panel.querySelectorAll('.action-btn').forEach(btn=>{
+          btn.style.visibility='hidden';
+        });
+        const toShow = selectorMode==='spell' ? 
+          panel.querySelectorAll('.action-btn.spell') : 
+          panel.querySelectorAll('.action-btn.creature');
+        toShow.forEach(btn=>btn.style.visibility='visible');
+        
+        // restore (hide all) after timeout
+        setTimeout(()=>{ if(!selectorMode){ panel.querySelectorAll('.action-btn').forEach(btn=>btn.style.visibility='hidden'); panelTitle.textContent='Q 스펠';} }, SELECTOR_TIMEOUT+50);
+      }
+    } else {
+      // On mobile: show skill UI modal and switch tabs
+      const mobileUI=document.getElementById('mobile-skill-ui');
+      if(mobileUI){
+        mobileUI.style.display='flex';
+        mobileUI.style.pointerEvents='auto';
+        if(selectorMode==='spell'){
+          document.getElementById('toggle-spell-mobile').classList.add('active');
+          document.getElementById('toggle-creature-mobile').classList.remove('active');
+          document.getElementById('spell-panel-mobile').classList.add('active');
+          document.getElementById('creature-panel-mobile').classList.remove('active');
+        } else {
+          document.getElementById('toggle-spell-mobile').classList.remove('active');
+          document.getElementById('toggle-creature-mobile').classList.add('active');
+          document.getElementById('spell-panel-mobile').classList.remove('active');
+          document.getElementById('creature-panel-mobile').classList.add('active');
+        }
       }
     }
     
@@ -1112,11 +1117,15 @@ class Creature{
     
     const dx=actualTarget.x-this.x,dy=actualTarget.y-this.y,d=Math.hypot(dx,dy);
     
-    // Ranged creatures: fire when in range, approach target
+    // Ranged creatures: always move toward target, fire when close enough
     if(this.ranged){
-      const FIRE_RANGE=50; // fire when within 50px - shorter range
-      // Always move toward target
-      if(d>30){this.x+=(dx/d)*this.spd*0.8;this.y+=(dy/d)*this.spd*0.8;}
+      const FIRE_RANGE=60; // fire when within 60px
+      const MOVE_STOP=35; // stop moving when within 35px
+      // Always move toward target unless very close
+      if(d>MOVE_STOP){
+        this.x+=(dx/d)*this.spd;
+        this.y+=(dy/d)*this.spd;
+      }
       // Fire if in range and fire cooldown passed
       if(d<FIRE_RANGE){
         const now=performance.now();
@@ -1165,24 +1174,7 @@ class Creature{
     
     c.shadowBlur=14;c.shadowColor=glowColor;
     
-    if(this.shield){
-      // Shield soldier: draw body, head, shield, sword
-      c.fillStyle=bodyColor;
-      // Body
-      c.fillRect(x-this.size/2.2,y,this.size/1.1,this.size*1.2);
-      // Head
-      c.beginPath();c.arc(x,y-12,this.size*0.7,0,Math.PI*2);c.fill();
-      // Shield (large and prominent)
-      c.fillStyle='#7c2d12';c.beginPath();
-      c.moveTo(x+this.size/1.5,y+2);c.lineTo(x+this.size/1.2,y+12);c.lineTo(x+this.size/1.5,y+18);c.lineTo(x+this.size/1.8,y+8);c.closePath();c.fill();
-      // Shield highlight
-      c.fillStyle='#b45309';c.beginPath();
-      c.moveTo(x+this.size/1.5,y+4);c.lineTo(x+this.size/1.3,y+10);c.lineTo(x+this.size/1.5,y+14);c.lineTo(x+this.size/1.7,y+8);c.closePath();c.fill();
-      // Arms
-      c.strokeStyle=bodyColor;c.lineWidth=this.size*0.3;c.lineCap='round';
-      c.beginPath();c.moveTo(x-this.size/3,y+2);c.lineTo(x-this.size,y+4);c.stroke();
-      c.beginPath();c.moveTo(x+this.size/4,y+2);c.lineTo(x+this.size/2,y+8);c.stroke();
-    } else if(this.icon==='⚔️'){
+    if(this.icon==='⚔️'){
       // Warrior: combat stance
       c.fillStyle=bodyColor;
       // Body
@@ -1222,6 +1214,23 @@ class Creature{
       // Arrow nocked
       c.strokeStyle='#f4a460';c.lineWidth=2;c.beginPath();
       c.moveTo(x+dir*4,y-2);c.lineTo(x+dir*10,y+3);c.stroke();
+    } else if(this.shield){
+      // Shield soldier: draw body, head, shield, sword
+      c.fillStyle=bodyColor;
+      // Body
+      c.fillRect(x-this.size/2.2,y,this.size/1.1,this.size*1.2);
+      // Head
+      c.beginPath();c.arc(x,y-12,this.size*0.7,0,Math.PI*2);c.fill();
+      // Shield (large and prominent)
+      c.fillStyle='#7c2d12';c.beginPath();
+      c.moveTo(x+this.size/1.5,y+2);c.lineTo(x+this.size/1.2,y+12);c.lineTo(x+this.size/1.5,y+18);c.lineTo(x+this.size/1.8,y+8);c.closePath();c.fill();
+      // Shield highlight
+      c.fillStyle='#b45309';c.beginPath();
+      c.moveTo(x+this.size/1.5,y+4);c.lineTo(x+this.size/1.3,y+10);c.lineTo(x+this.size/1.5,y+14);c.lineTo(x+this.size/1.7,y+8);c.closePath();c.fill();
+      // Arms
+      c.strokeStyle=bodyColor;c.lineWidth=this.size*0.3;c.lineCap='round';
+      c.beginPath();c.moveTo(x-this.size/3,y+2);c.lineTo(x-this.size,y+4);c.stroke();
+      c.beginPath();c.moveTo(x+this.size/4,y+2);c.lineTo(x+this.size/2,y+8);c.stroke();
     } else {
       // Mage: mystical robes and staff
       c.fillStyle=bodyColor;
@@ -1344,13 +1353,13 @@ class Character{
     c.fillStyle='#fbbf24';c.shadowBlur=9;c.shadowColor='#f59e0b';
     let weaponAngle=0;
     // Check if player recently attacked - swing sword animation
-    if(side==='player' && G.lastPlayerBasicT && Date.now()-G.lastPlayerBasicT<300){
-      const elapsed=Math.min(300,Date.now()-G.lastPlayerBasicT);
-      weaponAngle=(elapsed/300)*Math.PI*1.2*G.playerSwingDir; // swing 0-216 degrees, 300ms duration
+    if(side==='player' && G.lastPlayerBasicT && Date.now()-G.lastPlayerBasicT<350){
+      const elapsed=Math.min(350,Date.now()-G.lastPlayerBasicT);
+      weaponAngle=(elapsed/350)*Math.PI*1.5*G.playerSwingDir; // swing 0-270 degrees, 350ms duration
     }
     c.save();c.translate(x+22*dir,y-22);c.rotate(weaponAngle);
-    c.fillRect(0,0,7,40);c.shadowBlur=0;
-    c.fillStyle='#f59e0b';c.fillRect(-2,0,11,10);
+    c.fillRect(0,0,7,44);c.shadowBlur=0;
+    c.fillStyle='#f59e0b';c.fillRect(-2,0,11,12);
     c.restore();
     // HP bar
     const hp=this.hp/this.maxHp;
