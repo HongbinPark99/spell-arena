@@ -186,11 +186,12 @@ body{
 }
 /* Selector/visibility helpers to avoid layout shifts when showing/hiding buttons */
 .action-btn{
-  transition:opacity .12s ease;opacity:1;
-  position:relative; /* maintain layout space even when hidden */
+  visibility:hidden; /* hide by default, maintain layout space */
+  pointer-events:none;
+  transition:visibility .1s ease;
 }
-.action-btn.hidden{opacity:0;pointer-events:none;}
-.action-btn.visible{opacity:1;pointer-events:auto;}
+.action-btn.hidden{visibility:hidden;pointer-events:none;}
+.action-btn.visible{visibility:visible;pointer-events:auto;}
 #joystick-stick::after{
   content:'';position:absolute;
   top:6px;left:8px;width:18px;height:10px;border-radius:50%;
@@ -577,12 +578,17 @@ window.addEventListener('keydown',e=>{
     if(panel && panelTitle){
       if(selectorMode==='spell') panelTitle.textContent='Q 스펠';
       else panelTitle.textContent='W 크리처';
+      // Use visibility instead of hidden class to avoid layout shifts
       panel.querySelectorAll('.action-btn').forEach(btn=>{
-        const isSpell=btn.classList.contains('spell');
-        btn.classList.toggle('hidden', !(selectorMode==='spell'?isSpell:!isSpell));
+        btn.style.visibility='hidden';
       });
+      const toShow = selectorMode==='spell' ? 
+        panel.querySelectorAll('.action-btn.spell') : 
+        panel.querySelectorAll('.action-btn.creature');
+      toShow.forEach(btn=>btn.style.visibility='visible');
+      
       // restore (hide all) after timeout
-      setTimeout(()=>{ if(!selectorMode){ panel.querySelectorAll('.action-btn').forEach(btn=>btn.classList.add('hidden')); panelTitle.textContent='Q 스펠'; setSelectorIndicator(null);} }, SELECTOR_TIMEOUT+50);
+      setTimeout(()=>{ if(!selectorMode){ panel.querySelectorAll('.action-btn').forEach(btn=>btn.style.visibility='hidden'); panelTitle.textContent='Q 스펠'; setSelectorIndicator(null);} }, SELECTOR_TIMEOUT+50);
     }
     e.preventDefault();
     return;
@@ -1088,7 +1094,7 @@ class Creature{
     const dx=target.x-this.x,dy=target.y-this.y,d=Math.hypot(dx,dy);
     if(d>28){this.x+=(dx/d)*this.spd;this.y+=(dy/d)*this.spd;}
     else{
-      // If ranged creature, fire a projectile instead of instant melee
+      // If ranged creature, fire a projectile then disappear
       if(this.ranged){
         const now=performance.now();
         if(now>this.fireT){
@@ -1098,6 +1104,7 @@ class Creature{
           const py=this.y+Math.sin(ang)*(this.size+6);
           const kind = this.icon==='🏹'?'arrow':'bolt';
           this.fireT = now + rnd(900,1800);
+          this.dead=true; // disappear after attacking
           return new Projectile({x:px,y:py,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,dmg:this.atk,size:6,color:this.color,owner:this.owner,kind:kind});
         }
       } else {
@@ -1395,7 +1402,8 @@ const G={
     // PC: 스펠 버튼 추가
     SPELL_DEFS.forEach((def,i)=>{
       const btn=document.createElement('button');
-      btn.className='action-btn spell hidden';btn.id=`spb${i}`;
+      btn.className='action-btn spell';btn.id=`spb${i}`;
+      btn.style.visibility='hidden';
       btn.innerHTML=`<span class="key">${i+1}</span>${def.icon}<span class="cost">💧${def.cost}</span>`;
       btn.addEventListener('pointerdown',e=>{e.preventDefault();G.castSpell(i);});
       const cd=document.createElement('div');cd.className='cd-mask';cd.id=`spc${i}`;cd.style.display='none';
@@ -1406,10 +1414,10 @@ const G={
     ['Q','W','E','R'].forEach((k,i)=>{
       const def=CREATURE_DEFS[i];
       const btn=document.createElement('button');
-      btn.className='action-btn creature hidden';btn.id=`crb${i}`;
+      btn.className='action-btn creature';btn.id=`crb${i}`;
+      btn.style.visibility='hidden';
       btn.innerHTML=`<span class="key">${k}</span>${def.icon}<span class="cost">💧${def.cost}</span>`;
       btn.addEventListener('pointerdown',e=>{e.preventDefault();G.summon(i);});
-      // 초기에는 숨김 (클래스로 처리)
       panel.appendChild(btn);
     });
     
@@ -1734,24 +1742,28 @@ const G={
     // Draw melee attack range effect when active
     const MELEE_RANGE=48;
     const now=T;
-    if(this.lastPlayerBasicT && now-this.lastPlayerBasicT<200){
-      const alpha=(1-(now-this.lastPlayerBasicT)/200)*0.6;
+    if(this.lastPlayerBasicT && now-this.lastPlayerBasicT<250){
+      const elapsed=Math.min(250,now-this.lastPlayerBasicT);
+      const alpha=(1-elapsed/250)*0.8;
+      const scale=1+(elapsed/250)*0.3;
       const p=this.player;
       const dir=p.facing==='right'?1:-1;
       const hitX=p.x+dir*MELEE_RANGE/2;
       c.strokeStyle=`rgba(147,197,253,${alpha})`;
-      c.lineWidth=3;c.shadowBlur=12;c.shadowColor=`rgba(147,197,253,${alpha})`;
-      c.beginPath();c.arc(hitX,p.y,MELEE_RANGE,0,Math.PI*2);c.stroke();
+      c.lineWidth=4;c.shadowBlur=16;c.shadowColor=`rgba(147,197,253,${alpha*0.8})`;
+      c.beginPath();c.arc(hitX,p.y,MELEE_RANGE*scale,0,Math.PI*2);c.stroke();
       c.shadowBlur=0;
     }
-    if(this.lastAIBasicT && now-this.lastAIBasicT<200){
-      const alpha=(1-(now-this.lastAIBasicT)/200)*0.6;
+    if(this.lastAIBasicT && now-this.lastAIBasicT<250){
+      const elapsed=Math.min(250,now-this.lastAIBasicT);
+      const alpha=(1-elapsed/250)*0.8;
+      const scale=1+(elapsed/250)*0.3;
       const e=this.enemy;
       const dir=e.facing==='right'?1:-1;
       const hitX=e.x+dir*MELEE_RANGE/2;
       c.strokeStyle=`rgba(251,146,60,${alpha})`;
-      c.lineWidth=3;c.shadowBlur=12;c.shadowColor=`rgba(251,146,60,${alpha})`;
-      c.beginPath();c.arc(hitX,e.y,MELEE_RANGE,0,Math.PI*2);c.stroke();
+      c.lineWidth=4;c.shadowBlur=16;c.shadowColor=`rgba(251,146,60,${alpha*0.8})`;
+      c.beginPath();c.arc(hitX,e.y,MELEE_RANGE*scale,0,Math.PI*2);c.stroke();
       c.shadowBlur=0;
     }
     
