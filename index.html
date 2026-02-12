@@ -377,7 +377,6 @@ body{
       <div id="hud-mid">
         <div id="round-info">ROUND 1</div>
         <div id="timer">0:00</div>
-        <div id="selectorIndicator" style="font-size:11px;color:#f59e0b;font-weight:800;display:none;margin-top:2px;">선택</div>
         <div class="pips"><div class="pip" id="pip0"></div><div class="pip" id="pip1"></div><div class="pip" id="pip2"></div><div class="pip" id="pip3"></div></div>
       </div>
       <div class="hud-side right">
@@ -529,24 +528,8 @@ let selectorMode=null; // 'spell' or 'creature' when user presses Q/W first
 let selectorTimer=null;
 const SELECTOR_TIMEOUT=1200; // ms to wait for second key
 
-function setSelectorIndicator(mode){
-  const el=document.getElementById('selectorIndicator');
-  if(!el) return;
-  if(mode){
-    el.textContent = mode==='spell' ? '선택: 스펠' : '선택: 크리처';
-    el.style.display='block';
-    el.style.opacity='1';
-    // fade after timeout
-    setTimeout(()=>{
-      el.style.transition='opacity 200ms';
-      el.style.opacity='0';
-      setTimeout(()=>{ if(el) el.style.display='none'; },220);
-    }, SELECTOR_TIMEOUT-220);
-  } else {
-    el.style.display='none';
-    el.style.opacity='0';
-  }
-}
+// Removed setSelectorIndicator function - no longer needed
+
 window.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Space') e.preventDefault();
@@ -560,7 +543,7 @@ window.addEventListener('keydown',e=>{
       if(selectorMode==='spell') G.castSpell(idx);
       else if(selectorMode==='creature') G.summon(idx);
       // clear selector
-      selectorMode=null; if(selectorTimer){clearTimeout(selectorTimer);selectorTimer=null;} setSelectorIndicator(null);
+      selectorMode=null; if(selectorTimer){clearTimeout(selectorTimer);selectorTimer=null;}
       e.preventDefault();
       return;
     }
@@ -570,8 +553,7 @@ window.addEventListener('keydown',e=>{
   if(e.code==='KeyQ' || e.code==='KeyW'){
     selectorMode = e.code==='KeyQ' ? 'spell' : 'creature';
     if(selectorTimer) clearTimeout(selectorTimer);
-    setSelectorIndicator(selectorMode);
-    selectorTimer = setTimeout(()=>{ selectorMode=null; selectorTimer=null; setSelectorIndicator(null); }, SELECTOR_TIMEOUT);
+    selectorTimer = setTimeout(()=>{ selectorMode=null; selectorTimer=null; }, SELECTOR_TIMEOUT);
     // briefly show the relevant panel if available
     const panel=document.getElementById('skillPanel');
     const panelTitle=document.getElementById('skill-panel-title');
@@ -588,7 +570,7 @@ window.addEventListener('keydown',e=>{
       toShow.forEach(btn=>btn.style.visibility='visible');
       
       // restore (hide all) after timeout
-      setTimeout(()=>{ if(!selectorMode){ panel.querySelectorAll('.action-btn').forEach(btn=>btn.style.visibility='hidden'); panelTitle.textContent='Q 스펠'; setSelectorIndicator(null);} }, SELECTOR_TIMEOUT+50);
+      setTimeout(()=>{ if(!selectorMode){ panel.querySelectorAll('.action-btn').forEach(btn=>btn.style.visibility='hidden'); panelTitle.textContent='Q 스펠';} }, SELECTOR_TIMEOUT+50);
     }
     e.preventDefault();
     return;
@@ -1092,10 +1074,11 @@ class Creature{
   update(target){
     if(this.shield||this.spd===0) return null;
     const dx=target.x-this.x,dy=target.y-this.y,d=Math.hypot(dx,dy);
-    if(d>28){this.x+=(dx/d)*this.spd;this.y+=(dy/d)*this.spd;}
-    else{
-      // If ranged creature, fire a projectile then disappear
-      if(this.ranged){
+    
+    // Ranged creatures: fire when in range, don't die
+    if(this.ranged){
+      const FIRE_RANGE=80; // fire when within 80px
+      if(d<FIRE_RANGE){
         const now=performance.now();
         if(now>this.fireT){
           const ang=Math.atan2(target.y-this.y,target.x-this.x);
@@ -1103,11 +1086,17 @@ class Creature{
           const px=this.x+Math.cos(ang)*(this.size+6);
           const py=this.y+Math.sin(ang)*(this.size+6);
           const kind = this.icon==='🏹'?'arrow':'bolt';
-          this.fireT = now + rnd(900,1800);
-          this.dead=true; // disappear after attacking
+          this.fireT = now + rnd(1200,2400);
           return new Projectile({x:px,y:py,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,dmg:this.atk,size:6,color:this.color,owner:this.owner,kind:kind});
         }
       } else {
+        // Move toward target if out of range
+        if(d>6){this.x+=(dx/d)*this.spd;this.y+=(dy/d)*this.spd;}
+      }
+    } else {
+      // Melee creatures: move and attack
+      if(d>28){this.x+=(dx/d)*this.spd;this.y+=(dy/d)*this.spd;}
+      else{
         // 방패병이 있으면 방패병이 먼저 데미지를 받음
         const shield=target.creatures.find(c=>c.shield&&!c.dead);
         if(shield){
@@ -1135,37 +1124,88 @@ class Creature{
     const x=this.x,y=this.y;
     const bodyColor=this.color;
     const glowColor=isPlayer?'#22c55e':'#f97316';
+    const dir=isPlayer?1:-1;
     
-    // Simple creature character drawing
-    c.shadowBlur=14;c.shadowColor=glowColor;c.fillStyle=bodyColor;
+    c.shadowBlur=14;c.shadowColor=glowColor;
     
     if(this.shield){
-      // Shield soldier: wider base
-      c.fillRect(x-this.size/2,y,this.size,this.size*1.4);
-      c.beginPath();c.arc(x,y-8,this.size*0.7,0,Math.PI*2);c.fill();
-      // Shield sprite
-      c.fillStyle='#9b59b6';c.beginPath();
-      c.moveTo(x+this.size/2-2,y+4);c.lineTo(x+this.size/2+8,y+8);c.lineTo(x+this.size/2+6,y+16);c.lineTo(x+this.size/2-4,y+12);c.closePath();c.fill();
+      // Shield soldier: draw body, head, shield, sword
+      c.fillStyle=bodyColor;
+      // Body
+      c.fillRect(x-this.size/2.2,y,this.size/1.1,this.size*1.2);
+      // Head
+      c.beginPath();c.arc(x,y-12,this.size*0.7,0,Math.PI*2);c.fill();
+      // Shield (large and prominent)
+      c.fillStyle='#7c2d12';c.beginPath();
+      c.moveTo(x+this.size/1.5,y+2);c.lineTo(x+this.size/1.2,y+12);c.lineTo(x+this.size/1.5,y+18);c.lineTo(x+this.size/1.8,y+8);c.closePath();c.fill();
+      // Shield highlight
+      c.fillStyle='#b45309';c.beginPath();
+      c.moveTo(x+this.size/1.5,y+4);c.lineTo(x+this.size/1.3,y+10);c.lineTo(x+this.size/1.5,y+14);c.lineTo(x+this.size/1.7,y+8);c.closePath();c.fill();
+      // Arms
+      c.strokeStyle=bodyColor;c.lineWidth=this.size*0.3;c.lineCap='round';
+      c.beginPath();c.moveTo(x-this.size/3,y+2);c.lineTo(x-this.size,y+4);c.stroke();
+      c.beginPath();c.moveTo(x+this.size/4,y+2);c.lineTo(x+this.size/2,y+8);c.stroke();
     } else if(this.icon==='🏹'){
-      // Archer: sleeker form
-      c.fillRect(x-this.size/2.5,y-4,this.size/1.3,this.size*1.2);
-      c.beginPath();c.arc(x,y-10,this.size*0.65,0,Math.PI*2);c.fill();
-      // Arrow in hand
-      c.strokeStyle='#e8e8e8';c.lineWidth=2;c.beginPath();
-      c.moveTo(x+6,y-6);c.lineTo(x+16,y-8);c.stroke();
+      // Archer: leaning pose, holding bow
+      c.fillStyle=bodyColor;
+      // Body (diagonal lean)
+      c.save();c.translate(x,y);c.rotate(Math.PI/6*dir);
+      c.fillRect(-this.size/2.6,-this.size/1.2,this.size/1.3,this.size*1.3);
+      c.restore();
+      // Head
+      c.beginPath();c.arc(x+dir*3,y-14,this.size*0.68,0,Math.PI*2);c.fill();
+      // Bow (arc shape)
+      c.strokeStyle='#d97706';c.lineWidth=3;
+      c.beginPath();
+      c.arc(x+dir*8,y-4,this.size*0.8,Math.PI*(1-0.3),Math.PI*(1+0.3));c.stroke();
+      // Bowstring
+      c.strokeStyle='#f5f5f5';c.lineWidth=1;c.beginPath();
+      c.moveTo(x+dir*6,y-10);c.lineTo(x+dir*10,y+2);c.stroke();
+      // Arrow nocked
+      c.strokeStyle='#f4a460';c.lineWidth=2;c.beginPath();
+      c.moveTo(x+dir*4,y-2);c.lineTo(x+dir*10,y+3);c.stroke();
     } else if(this.icon==='⚔️'){
-      // Warrior: standard rectangle
-      c.fillRect(x-this.size/2.2,y-2,this.size/1.1,this.size*1.3);
-      c.beginPath();c.arc(x,y-10,this.size*0.68,0,Math.PI*2);c.fill();
-      // Sword
-      c.strokeStyle='#fbbf24';c.lineWidth=3;c.beginPath();
-      c.moveTo(x+10,y-8);c.lineTo(x+12,y+10);c.stroke();
+      // Warrior: combat stance
+      c.fillStyle=bodyColor;
+      // Body
+      c.fillRect(x-this.size/2.3,y-2,this.size/1.15,this.size*1.3);
+      // Head
+      c.beginPath();c.arc(x,y-13,this.size*0.7,0,Math.PI*2);c.fill();
+      // Helmet stripe
+      c.fillStyle='rgba(255,255,255,.3)';
+      c.fillRect(x-this.size*0.15,y-15,this.size*0.3,this.size*0.4);
+      c.fillStyle=bodyColor;
+      // Arms
+      c.lineWidth=this.size*0.35;c.lineCap='round';
+      c.beginPath();c.moveTo(x-this.size/2,y+2);c.lineTo(x-this.size,y-4);c.stroke();
+      c.beginPath();c.moveTo(x+this.size/2,y+2);c.lineTo(x+this.size/1.2,y-8);c.stroke();
+      // Sword (raised, gleaming)
+      c.strokeStyle='#fbbf24';c.lineWidth=3;c.lineCap='round';
+      c.beginPath();c.moveTo(x+this.size/1.2,y-8);c.lineTo(x+this.size/1.1,y-18);c.stroke();
+      // Sword shine
+      c.strokeStyle='rgba(255,255,255,.6)';c.lineWidth=1;
+      c.beginPath();c.moveTo(x+this.size/1.15,y-10);c.lineTo(x+this.size/1.08,y-16);c.stroke();
     } else {
-      // Mage: pointy hat form
-      c.fillRect(x-this.size/2.3,y,this.size/1.15,this.size*1.2);
-      c.beginPath();c.arc(x,y-10,this.size*0.7,0,Math.PI*2);c.fill();
-      // Hat
-      c.beginPath();c.moveTo(x-this.size/1.8,y-8);c.lineTo(x,y-18);c.lineTo(x+this.size/1.8,y-8);c.closePath();c.fill();
+      // Mage: mystical robes and staff
+      c.fillStyle=bodyColor;
+      // Robe body (wider)
+      c.beginPath();c.moveTo(x-this.size/1.8,y-2);c.lineTo(x-this.size/1.3,y+13);c.lineTo(x+this.size/1.3,y+13);c.lineTo(x+this.size/1.8,y-2);c.arc(x,y-12,this.size*0.7,0,Math.PI,true);c.closePath();c.fill();
+      // Head
+      c.beginPath();c.arc(x,y-12,this.size*0.72,0,Math.PI*2);c.fill();
+      // Pointy hat
+      c.beginPath();c.moveTo(x-this.size/1.5,y-11);c.lineTo(x,y-22);c.lineTo(x+this.size/1.5,y-11);c.closePath();c.fill();
+      // Hat band
+      c.fillStyle='rgba(255,255,255,.3)';
+      c.fillRect(x-this.size/1.4,y-11.5,this.size/0.75,this.size*0.4);
+      c.fillStyle=bodyColor;
+      // Staff
+      c.strokeStyle='#d4af37';c.lineWidth=2;c.lineCap='round';
+      c.beginPath();c.moveTo(x+this.size/2,y+5);c.lineTo(x+this.size/1.1,y-18);c.stroke();
+      // Staff orb
+      c.fillStyle='#f59e0b';c.shadowBlur=12;c.shadowColor='#f59e0b';
+      c.beginPath();c.arc(x+this.size/1.1,y-20,this.size*0.4,0,Math.PI*2);c.fill();
+      c.shadowBlur=0;
+    }
     }
     
     c.shadowBlur=0;
