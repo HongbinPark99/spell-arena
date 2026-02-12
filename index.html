@@ -449,7 +449,7 @@ const CFG={
   DANGER_GRACE:1000,
   DANGER_DPS:1.5,
   ORB_INTERVAL:2200,MAX_ORBS:9,
-  BASIC_CD:320,BASIC_DMG:1.5,
+  BASIC_CD:280,BASIC_DMG:1.5,
   MANA_REGEN:0.25,
   NET_HZ:30,          // 30hz sync - smoother
 };
@@ -544,6 +544,9 @@ window.addEventListener('keydown',e=>{
       else if(selectorMode==='creature') G.summon(idx);
       // clear selector
       selectorMode=null; if(selectorTimer){clearTimeout(selectorTimer);selectorTimer=null;}
+      // Hide mobile skill UI after selection
+      const mobileUI=document.getElementById('mobile-skill-ui');
+      if(mobileUI) mobileUI.style.display='none';
       e.preventDefault();
       return;
     }
@@ -554,10 +557,11 @@ window.addEventListener('keydown',e=>{
     selectorMode = e.code==='KeyQ' ? 'spell' : 'creature';
     if(selectorTimer) clearTimeout(selectorTimer);
     selectorTimer = setTimeout(()=>{ selectorMode=null; selectorTimer=null; }, SELECTOR_TIMEOUT);
-    // briefly show the relevant panel if available
+    
+    // On PC: show side panel
     const panel=document.getElementById('skillPanel');
     const panelTitle=document.getElementById('skill-panel-title');
-    if(panel && panelTitle){
+    if(panel && panelTitle && !isMobileDevice()){
       if(selectorMode==='spell') panelTitle.textContent='Q 스펠';
       else panelTitle.textContent='W 크리처';
       // Use visibility instead of hidden class to avoid layout shifts
@@ -572,6 +576,24 @@ window.addEventListener('keydown',e=>{
       // restore (hide all) after timeout
       setTimeout(()=>{ if(!selectorMode){ panel.querySelectorAll('.action-btn').forEach(btn=>btn.style.visibility='hidden'); panelTitle.textContent='Q 스펠';} }, SELECTOR_TIMEOUT+50);
     }
+    
+    // On mobile: show skill UI modal and switch tabs
+    const mobileUI=document.getElementById('mobile-skill-ui');
+    if(mobileUI && isMobileDevice()){
+      mobileUI.style.display='flex';
+      if(selectorMode==='spell'){
+        document.getElementById('toggle-spell-mobile').classList.add('active');
+        document.getElementById('toggle-creature-mobile').classList.remove('active');
+        document.getElementById('spell-panel-mobile').classList.add('active');
+        document.getElementById('creature-panel-mobile').classList.remove('active');
+      } else {
+        document.getElementById('toggle-spell-mobile').classList.remove('active');
+        document.getElementById('toggle-creature-mobile').classList.add('active');
+        document.getElementById('spell-panel-mobile').classList.remove('active');
+        document.getElementById('creature-panel-mobile').classList.add('active');
+      }
+    }
+    
     e.preventDefault();
     return;
   }
@@ -1090,9 +1112,12 @@ class Creature{
     
     const dx=actualTarget.x-this.x,dy=actualTarget.y-this.y,d=Math.hypot(dx,dy);
     
-    // Ranged creatures: fire when in range, don't die
+    // Ranged creatures: fire when in range, approach target
     if(this.ranged){
-      const FIRE_RANGE=80; // fire when within 80px
+      const FIRE_RANGE=50; // fire when within 50px - shorter range
+      // Always move toward target
+      if(d>30){this.x+=(dx/d)*this.spd*0.8;this.y+=(dy/d)*this.spd*0.8;}
+      // Fire if in range and fire cooldown passed
       if(d<FIRE_RANGE){
         const now=performance.now();
         if(now>this.fireT){
@@ -1104,9 +1129,6 @@ class Creature{
           this.fireT = now + rnd(1200,2400);
           return new Projectile({x:px,y:py,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,dmg:this.atk,size:6,color:this.color,owner:this.owner,kind:kind});
         }
-      } else {
-        // Move toward target if out of range
-        if(d>6){this.x+=(dx/d)*this.spd;this.y+=(dy/d)*this.spd;}
       }
     } else {
       // Melee creatures: move and attack
@@ -1160,25 +1182,6 @@ class Creature{
       c.strokeStyle=bodyColor;c.lineWidth=this.size*0.3;c.lineCap='round';
       c.beginPath();c.moveTo(x-this.size/3,y+2);c.lineTo(x-this.size,y+4);c.stroke();
       c.beginPath();c.moveTo(x+this.size/4,y+2);c.lineTo(x+this.size/2,y+8);c.stroke();
-    } else if(this.icon==='🏹'){
-      // Archer: leaning pose, holding bow
-      c.fillStyle=bodyColor;
-      // Body (diagonal lean)
-      c.save();c.translate(x,y);c.rotate(Math.PI/6*dir);
-      c.fillRect(-this.size/2.6,-this.size/1.2,this.size/1.3,this.size*1.3);
-      c.restore();
-      // Head
-      c.beginPath();c.arc(x+dir*3,y-14,this.size*0.68,0,Math.PI*2);c.fill();
-      // Bow (arc shape)
-      c.strokeStyle='#d97706';c.lineWidth=3;
-      c.beginPath();
-      c.arc(x+dir*8,y-4,this.size*0.8,Math.PI*(1-0.3),Math.PI*(1+0.3));c.stroke();
-      // Bowstring
-      c.strokeStyle='#f5f5f5';c.lineWidth=1;c.beginPath();
-      c.moveTo(x+dir*6,y-10);c.lineTo(x+dir*10,y+2);c.stroke();
-      // Arrow nocked
-      c.strokeStyle='#f4a460';c.lineWidth=2;c.beginPath();
-      c.moveTo(x+dir*4,y-2);c.lineTo(x+dir*10,y+3);c.stroke();
     } else if(this.icon==='⚔️'){
       // Warrior: combat stance
       c.fillStyle=bodyColor;
@@ -1200,6 +1203,25 @@ class Creature{
       // Sword shine
       c.strokeStyle='rgba(255,255,255,.6)';c.lineWidth=1;
       c.beginPath();c.moveTo(x+this.size/1.15,y-10);c.lineTo(x+this.size/1.08,y-16);c.stroke();
+    } else if(this.icon==='🏹'){
+      // Archer: leaning pose, holding bow
+      c.fillStyle=bodyColor;
+      // Body (diagonal lean)
+      c.save();c.translate(x,y);c.rotate(Math.PI/6*dir);
+      c.fillRect(-this.size/2.6,-this.size/1.2,this.size/1.3,this.size*1.3);
+      c.restore();
+      // Head
+      c.beginPath();c.arc(x+dir*3,y-14,this.size*0.68,0,Math.PI*2);c.fill();
+      // Bow (arc shape)
+      c.strokeStyle='#d97706';c.lineWidth=3;
+      c.beginPath();
+      c.arc(x+dir*8,y-4,this.size*0.8,Math.PI*(1-0.3),Math.PI*(1+0.3));c.stroke();
+      // Bowstring
+      c.strokeStyle='#f5f5f5';c.lineWidth=1;c.beginPath();
+      c.moveTo(x+dir*6,y-10);c.lineTo(x+dir*10,y+2);c.stroke();
+      // Arrow nocked
+      c.strokeStyle='#f4a460';c.lineWidth=2;c.beginPath();
+      c.moveTo(x+dir*4,y-2);c.lineTo(x+dir*10,y+3);c.stroke();
     } else {
       // Mage: mystical robes and staff
       c.fillStyle=bodyColor;
@@ -1322,13 +1344,13 @@ class Character{
     c.fillStyle='#fbbf24';c.shadowBlur=9;c.shadowColor='#f59e0b';
     let weaponAngle=0;
     // Check if player recently attacked - swing sword animation
-    if(side==='player' && G.lastPlayerBasicT && Date.now()-G.lastPlayerBasicT<200){
-      const elapsed=Math.min(200,Date.now()-G.lastPlayerBasicT);
-      weaponAngle=(elapsed/200)*Math.PI*0.6*G.playerSwingDir; // swing 0-108 degrees
+    if(side==='player' && G.lastPlayerBasicT && Date.now()-G.lastPlayerBasicT<300){
+      const elapsed=Math.min(300,Date.now()-G.lastPlayerBasicT);
+      weaponAngle=(elapsed/300)*Math.PI*1.2*G.playerSwingDir; // swing 0-216 degrees, 300ms duration
     }
     c.save();c.translate(x+22*dir,y-22);c.rotate(weaponAngle);
-    c.fillRect(0,0,7,36);c.shadowBlur=0;
-    c.fillStyle='#f59e0b';c.fillRect(-2,0,11,9);
+    c.fillRect(0,0,7,40);c.shadowBlur=0;
+    c.fillStyle='#f59e0b';c.fillRect(-2,0,11,10);
     c.restore();
     // HP bar
     const hp=this.hp/this.maxHp;
