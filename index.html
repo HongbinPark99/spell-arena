@@ -184,6 +184,10 @@ body{
   /* Inner shine */
   overflow:hidden;
 }
+#/* Selector/visibility helpers to avoid layout shifts when showing/hiding buttons */
+.action-btn{transition:opacity .14s ease,transform .12s ease;opacity:1}
+.action-btn.hidden{opacity:0;pointer-events:none;transform:translateY(6px) scale(.98)}
+.action-btn.visible{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
 #joystick-stick::after{
   content:'';position:absolute;
   top:6px;left:8px;width:18px;height:10px;border-radius:50%;
@@ -454,9 +458,9 @@ const SPELL_DEFS=[
 ];
 const CREATURE_DEFS=[
   {id:0,name:'검사',  cost:2,atk:4,spd:2.8,icon:'⚔️',size:22,color:'#22c55e',hp:1},
-  {id:1,name:'궁수',  cost:3,atk:5,spd:2.4,icon:'🏹',size:20,color:'#3b82f6',hp:1},
+  {id:1,name:'궁수',  cost:3,atk:5,spd:2.4,icon:'🏹',size:20,color:'#3b82f6',hp:1,ranged:true},
   {id:2,name:'방패병',cost:2,atk:0,spd:0,  icon:'🛡️',size:26,color:'#9b59b6',hp:2,shield:true},
-  {id:3,name:'마법사',cost:3,atk:6,spd:2.4,icon:'🔮',size:20,color:'#e74c3c',hp:1},
+  {id:3,name:'마법사',cost:3,atk:6,spd:2.4,icon:'🔮',size:20,color:'#e74c3c',hp:1,ranged:true},
 ];
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -572,10 +576,10 @@ window.addEventListener('keydown',e=>{
       else panelTitle.textContent='W 크리처';
       panel.querySelectorAll('.action-btn').forEach(btn=>{
         const isSpell=btn.classList.contains('spell');
-        btn.style.display = (selectorMode==='spell'?isSpell:!isSpell)?'flex':'none';
+        btn.classList.toggle('hidden', !(selectorMode==='spell'?isSpell:!isSpell));
       });
-      // restore after timeout
-      setTimeout(()=>{ if(!selectorMode){ panel.querySelectorAll('.action-btn').forEach(btn=>btn.style.display='flex'); panelTitle.textContent='Q 스펠'; setSelectorIndicator(null);} }, SELECTOR_TIMEOUT+50);
+      // restore (hide all) after timeout
+      setTimeout(()=>{ if(!selectorMode){ panel.querySelectorAll('.action-btn').forEach(btn=>btn.classList.add('hidden')); panelTitle.textContent='Q 스펠'; setSelectorIndicator(null);} }, SELECTOR_TIMEOUT+50);
     }
     e.preventDefault();
     return;
@@ -824,6 +828,27 @@ function onData(raw){
       }));
       break;
 
+    // Melee attack sync from remote
+    case 'mb':
+      if(G.remote){
+        G.particles.push(new Particle(d.x,d.y,'#93c5fd',8));
+        // Damage player if in melee range
+        const MELEE_RANGE=48;
+        if(dist(G.player,G.remote)<MELEE_RANGE){
+          G.player.hp=Math.max(0,G.player.hp-CFG.BASIC_DMG);
+        }
+        // Damage player creatures if in range
+        for(let j=G.player.creatures.length-1;j>=0;j--){
+          const cr=G.player.creatures[j];
+          if(dist({x:d.x,y:d.y},cr)<MELEE_RANGE){
+            G.particles.push(new Particle(cr.x,cr.y,'#93c5fd',6));
+            if(cr.shield){cr.currentHp--;if(cr.currentHp<=0)G.player.creatures.splice(j,1);}
+            else G.player.creatures.splice(j,1);
+          }
+        }
+      }
+      break;
+
     // Orb spawn sync (host→guest)
     case 'o':
       if(!isHost) G.orbs.push(new ManaOrb(d.seed));
@@ -984,11 +1009,41 @@ class Projectile{
     this._trail.forEach((t,i)=>{
       c.globalAlpha=(1-i/this._trail.length)*.4;
       c.fillStyle=this.color;c.beginPath();
-      c.arc(t.x,t.y,this.size*(1-i*.18),0,Math.PI*2);c.fill();
+      if(this.kind==='arrow'){
+        // faded small circle tail for arrow
+        c.beginPath();c.arc(t.x,t.y,this.size*(1-i*.18),0,Math.PI*2);c.fill();
+      } else if(this.kind==='bolt'){
+        c.beginPath();c.arc(t.x,t.y,this.size*(1-i*.18),0,Math.PI*2);c.fill();
+      } else {
+        c.arc(t.x,t.y,this.size*(1-i*.18),0,Math.PI*2);c.fill();
+      }
     });
     c.globalAlpha=1;c.fillStyle=this.color;
     c.shadowBlur=18;c.shadowColor=this.color;
-    c.beginPath();c.arc(this.x,this.y,this.size,0,Math.PI*2);c.fill();
+    if(this.kind==='arrow'){
+      // draw arrow: rotated triangle + shaft
+      const ang=Math.atan2(this.vy,this.vx);
+      c.save();c.translate(this.x,this.y);c.rotate(ang);
+      // shaft
+      c.fillStyle=this.color; c.fillRect(-this.size*2, -this.size*0.4, this.size*3, this.size*0.8);
+      // head
+      c.beginPath(); c.moveTo(this.size*1.5,0); c.lineTo(-this.size*0.2,-this.size*1.2); c.lineTo(-this.size*0.2,this.size*1.2); c.closePath(); c.fill();
+      c.restore();
+    } else if(this.kind==='bolt'){
+      // draw zig-zag bolt
+      const ang=Math.atan2(this.vy,this.vx);
+      const len = Math.hypot(this.vx,this.vy);
+      c.save(); c.translate(this.x,this.y); c.rotate(ang);
+      c.beginPath();
+      c.moveTo(-this.size,0);
+      c.lineTo(-this.size*0.2,-this.size*1.4);
+      c.lineTo(this.size*0.6,0);
+      c.lineTo(-this.size*0.2,this.size*1.4);
+      c.closePath(); c.fillStyle=this.color; c.fill();
+      c.restore();
+    } else {
+      c.beginPath();c.arc(this.x,this.y,this.size,0,Math.PI*2);c.fill();
+    }
     c.shadowBlur=0;
   }
 }
@@ -1022,23 +1077,40 @@ class Creature{
     this.owner=owner;this.x=x;this.y=y;
     this._tx=x;this._ty=y; // interpolation targets
     this.currentHp=def.hp;this.dead=false;
+    this.ranged = !!def.ranged;
+    this.fireT = 0;
   }
   update(target){
-    if(this.shield||this.spd===0) return;
+    if(this.shield||this.spd===0) return null;
     const dx=target.x-this.x,dy=target.y-this.y,d=Math.hypot(dx,dy);
     if(d>28){this.x+=(dx/d)*this.spd;this.y+=(dy/d)*this.spd;}
     else{
-      // 방패병이 있으면 방패병이 먼저 데미지를 받음
-      const shield=target.creatures.find(c=>c.shield&&!c.dead);
-      if(shield){
-        shield.currentHp=Math.max(0,shield.currentHp-this.atk);
-        if(shield.currentHp<=0) shield.dead=true;
+      // If ranged creature, fire a projectile instead of instant melee
+      if(this.ranged){
+        const now=performance.now();
+        if(now>this.fireT){
+          const ang=Math.atan2(target.y-this.y,target.x-this.x);
+          const spd=6;
+          const px=this.x+Math.cos(ang)*(this.size+6);
+          const py=this.y+Math.sin(ang)*(this.size+6);
+          const kind = this.icon==='🏹'?'arrow':'bolt';
+          this.fireT = now + rnd(900,1800);
+          return new Projectile({x:px,y:py,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,dmg:this.atk,size:6,color:this.color,owner:this.owner,kind:kind});
+        }
       } else {
-        target.hp=Math.max(0,target.hp-this.atk);
+        // 방패병이 있으면 방패병이 먼저 데미지를 받음
+        const shield=target.creatures.find(c=>c.shield&&!c.dead);
+        if(shield){
+          shield.currentHp=Math.max(0,shield.currentHp-this.atk);
+          if(shield.currentHp<=0) shield.dead=true;
+        } else {
+          target.hp=Math.max(0,target.hp-this.atk);
+        }
+        this.dead=true;
       }
-      this.dead=true;
     }
     this._tx=this.x;this._ty=this.y;
+    return null;
   }
   // For remote creatures: interpolate toward received position
   interpolate(){
@@ -1269,24 +1341,23 @@ const G={
     const panel=document.getElementById('skillPanel');
     panel.querySelectorAll('.action-btn').forEach(b=>b.remove());
     
-    // PC 토글 버튼 설정
+    // PC 토글 button (still available) but action buttons are hidden by default
     const toggleBtn=document.getElementById('skill-toggle-btn');
     const panelTitle=document.getElementById('skill-panel-title');
     let isShowingSpells=true;
-    
     toggleBtn.onclick=()=>{
       isShowingSpells=!isShowingSpells;
       panelTitle.textContent=isShowingSpells?'Q 스펠':'W 크리처';
       panel.querySelectorAll('.action-btn').forEach(btn=>{
         const isSpell=btn.classList.contains('spell');
-        btn.style.display=(isShowingSpells&&isSpell)||(!isShowingSpells&&!isSpell)?'flex':'none';
+        btn.classList.toggle('hidden', !( (isShowingSpells&&isSpell) || (!isShowingSpells&&!isSpell) ));
       });
     };
     
     // PC: 스펠 버튼 추가
     SPELL_DEFS.forEach((def,i)=>{
       const btn=document.createElement('button');
-      btn.className='action-btn spell';btn.id=`spb${i}`;
+      btn.className='action-btn spell hidden';btn.id=`spb${i}`;
       btn.innerHTML=`<span class="key">${i+1}</span>${def.icon}<span class="cost">💧${def.cost}</span>`;
       btn.addEventListener('pointerdown',e=>{e.preventDefault();G.castSpell(i);});
       const cd=document.createElement('div');cd.className='cd-mask';cd.id=`spc${i}`;cd.style.display='none';
@@ -1297,10 +1368,10 @@ const G={
     ['Q','W','E','R'].forEach((k,i)=>{
       const def=CREATURE_DEFS[i];
       const btn=document.createElement('button');
-      btn.className='action-btn creature';btn.id=`crb${i}`;
+      btn.className='action-btn creature hidden';btn.id=`crb${i}`;
       btn.innerHTML=`<span class="key">${k}</span>${def.icon}<span class="cost">💧${def.cost}</span>`;
       btn.addEventListener('pointerdown',e=>{e.preventDefault();G.summon(i);});
-      btn.style.display='none'; // 초기에는 숨김
+      // 초기에는 숨김 (클래스로 처리)
       panel.appendChild(btn);
     });
     
@@ -1473,18 +1544,31 @@ const G={
     p.updateDanger(dt);
     if(!isMulti) e.updateDanger(dt);
 
-    // ── Player basic shot
+    // ── Player basic melee attack
     p.basicCd-=dt;
     if(p.basicCd<=0&&(keys['Space']||mobileShoot)){
+      // Melee attack: hit creatures and enemy in range
+      const MELEE_RANGE=48;
       const dir=p.facing==='right'?1:-1;
-      const pj=new Projectile({
-        x:p.x+dir*28,y:p.y-8,
-        vx:dir*6.5,vy:rnd(-.4,.4),
-        dmg:CFG.BASIC_DMG,size:7,color:'#93c5fd',
-        owner:'player',
-      });
-      this.projectiles.push(pj);
-      if(isMulti) netSend({t:'p',x:pj.x,y:pj.y,vx:pj.vx,vy:pj.vy,dm:pj.dmg,sz:pj.size,cl:pj.color});
+      const hitPos={x:p.x+dir*MELEE_RANGE/2,y:p.y};
+      
+      // Add particle effect for melee swing
+      this.particles.push(new Particle(hitPos.x,hitPos.y,'#93c5fd',8));
+      
+      // Check if enemy is in melee range
+      if(dist(p,e)<MELEE_RANGE){
+        e.hp=Math.max(0,e.hp-CFG.BASIC_DMG);
+      }
+      // Check if any enemy creatures are in melee range
+      for(let j=e.creatures.length-1;j>=0;j--){
+        const cr=e.creatures[j];
+        if(dist(hitPos,cr)<MELEE_RANGE){
+          this.particles.push(new Particle(cr.x,cr.y,'#93c5fd',6));
+          if(cr.shield){cr.currentHp--;if(cr.currentHp<=0)e.creatures.splice(j,1);}
+          else e.creatures.splice(j,1);
+        }
+      }
+      if(isMulti) netSend({t:'mb',x:hitPos.x,y:hitPos.y}); // sync melee attack
       p.basicCd=CFG.BASIC_CD;
     }
 
@@ -1555,11 +1639,11 @@ const G={
     // ── Local creature movement
     // Solo: move AI creatures toward player
     if(!isMulti){
-      e.creatures.forEach(c=>{c.update(p);if(c.dead)this.particles.push(new Particle(c.x,c.y,'#facc15',14));});
+      e.creatures.forEach(c=>{const proj=c.update(p,now); if(proj) this.projectiles.push(proj); if(c.dead)this.particles.push(new Particle(c.x,c.y,'#facc15',14));});
       e.creatures=e.creatures.filter(c=>!c.dead);
     }
     // Player creatures always move locally
-    p.creatures.forEach(c=>{c.update(e);if(c.dead)this.particles.push(new Particle(c.x,c.y,'#facc15',14));});
+    p.creatures.forEach(c=>{const proj=c.update(e,now); if(proj) this.projectiles.push(proj); if(c.dead)this.particles.push(new Particle(c.x,c.y,'#facc15',14));});
     p.creatures=p.creatures.filter(c=>!c.dead);
 
     // ── Particles
