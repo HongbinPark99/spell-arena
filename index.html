@@ -184,10 +184,13 @@ body{
   /* Inner shine */
   overflow:hidden;
 }
-#/* Selector/visibility helpers to avoid layout shifts when showing/hiding buttons */
-.action-btn{transition:opacity .14s ease,transform .12s ease;opacity:1}
-.action-btn.hidden{opacity:0;pointer-events:none;transform:translateY(6px) scale(.98)}
-.action-btn.visible{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
+/* Selector/visibility helpers to avoid layout shifts when showing/hiding buttons */
+.action-btn{
+  transition:opacity .12s ease;opacity:1;
+  position:relative; /* maintain layout space even when hidden */
+}
+.action-btn.hidden{opacity:0;pointer-events:none;}
+.action-btn.visible{opacity:1;pointer-events:auto;}
 #joystick-stick::after{
   content:'';position:absolute;
   top:6px;left:8px;width:18px;height:10px;border-radius:50%;
@@ -1121,12 +1124,45 @@ class Creature{
     }
   }
   draw(c){
-    const gc=this.owner==='player'?'#22c55e':'#f97316';
-    c.fillStyle=this.color;c.shadowBlur=18;c.shadowColor=gc;
-    c.beginPath();c.arc(this.x,this.y,this.size,0,Math.PI*2);c.fill();c.shadowBlur=0;
-    c.strokeStyle='rgba(255,255,255,.7)';c.lineWidth=2.5;c.stroke();
-    c.font=`bold ${this.size+7}px Arial`;c.textAlign='center';c.textBaseline='middle';
-    c.fillStyle='#fff';c.fillText(this.icon,this.x,this.y);c.textBaseline='alphabetic';
+    const isPlayer=this.owner==='player';
+    const x=this.x,y=this.y;
+    const bodyColor=this.color;
+    const glowColor=isPlayer?'#22c55e':'#f97316';
+    
+    // Simple creature character drawing
+    c.shadowBlur=14;c.shadowColor=glowColor;c.fillStyle=bodyColor;
+    
+    if(this.shield){
+      // Shield soldier: wider base
+      c.fillRect(x-this.size/2,y,this.size,this.size*1.4);
+      c.beginPath();c.arc(x,y-8,this.size*0.7,0,Math.PI*2);c.fill();
+      // Shield sprite
+      c.fillStyle='#9b59b6';c.beginPath();
+      c.moveTo(x+this.size/2-2,y+4);c.lineTo(x+this.size/2+8,y+8);c.lineTo(x+this.size/2+6,y+16);c.lineTo(x+this.size/2-4,y+12);c.closePath();c.fill();
+    } else if(this.icon==='🏹'){
+      // Archer: sleeker form
+      c.fillRect(x-this.size/2.5,y-4,this.size/1.3,this.size*1.2);
+      c.beginPath();c.arc(x,y-10,this.size*0.65,0,Math.PI*2);c.fill();
+      // Arrow in hand
+      c.strokeStyle='#e8e8e8';c.lineWidth=2;c.beginPath();
+      c.moveTo(x+6,y-6);c.lineTo(x+16,y-8);c.stroke();
+    } else if(this.icon==='⚔️'){
+      // Warrior: standard rectangle
+      c.fillRect(x-this.size/2.2,y-2,this.size/1.1,this.size*1.3);
+      c.beginPath();c.arc(x,y-10,this.size*0.68,0,Math.PI*2);c.fill();
+      // Sword
+      c.strokeStyle='#fbbf24';c.lineWidth=3;c.beginPath();
+      c.moveTo(x+10,y-8);c.lineTo(x+12,y+10);c.stroke();
+    } else {
+      // Mage: pointy hat form
+      c.fillRect(x-this.size/2.3,y,this.size/1.15,this.size*1.2);
+      c.beginPath();c.arc(x,y-10,this.size*0.7,0,Math.PI*2);c.fill();
+      // Hat
+      c.beginPath();c.moveTo(x-this.size/1.8,y-8);c.lineTo(x,y-18);c.lineTo(x+this.size/1.8,y-8);c.closePath();c.fill();
+    }
+    
+    c.shadowBlur=0;
+    c.strokeStyle='rgba(255,255,255,.5)';c.lineWidth=2;c.strokeRect(x-this.size/2,y-10,this.size,this.size+10);
     if(this.hp>1){
       const bw=this.size*2;
       c.fillStyle='rgba(0,0,0,.6)';c.fillRect(this.x-bw/2,this.y-this.size-10,bw,5);
@@ -1319,8 +1355,9 @@ class AICtrl{
     }
     e.basicCd-=16;
     if(e.basicCd<=0&&Math.random()<.013){
-      const dir=e.facing==='right'?1:-1;
-      projs.push(new Projectile({x:e.x+dir*28,y:e.y-8,vx:dir*6.5,vy:rnd(-.4,.4),dmg:CFG.BASIC_DMG,size:7,color:'#fb923c',owner:'enemy'}));
+      // AI melee attack (stored for rendering range effect)
+      if(!this.lastAIBasicT) this.lastAIBasicT=0;
+      this.lastAIBasicT=now;
       e.basicCd=CFG.BASIC_CD;
     }
   }
@@ -1336,6 +1373,7 @@ const G={
   projectiles:[],orbs:[],particles:[],
   ai:null,
   _ivals:{},_lastT:0,
+  lastPlayerBasicT:0,lastAIBasicT:0,
 
   buildButtons(){
     const panel=document.getElementById('skillPanel');
@@ -1552,6 +1590,9 @@ const G={
       const dir=p.facing==='right'?1:-1;
       const hitPos={x:p.x+dir*MELEE_RANGE/2,y:p.y};
       
+      // Record for range effect rendering
+      this.lastPlayerBasicT=now;
+      
       // Add particle effect for melee swing
       this.particles.push(new Particle(hitPos.x,hitPos.y,'#93c5fd',8));
       
@@ -1689,6 +1730,31 @@ const G={
     c.shadowBlur=14;c.shadowColor='#a855f780';
     c.beginPath();c.moveTo(CFG.MID,0);c.lineTo(CFG.MID,CFG.H);c.stroke();
     c.setLineDash([]);c.shadowBlur=0;
+    
+    // Draw melee attack range effect when active
+    const MELEE_RANGE=48;
+    const now=T;
+    if(this.lastPlayerBasicT && now-this.lastPlayerBasicT<200){
+      const alpha=(1-(now-this.lastPlayerBasicT)/200)*0.6;
+      const p=this.player;
+      const dir=p.facing==='right'?1:-1;
+      const hitX=p.x+dir*MELEE_RANGE/2;
+      c.strokeStyle=`rgba(147,197,253,${alpha})`;
+      c.lineWidth=3;c.shadowBlur=12;c.shadowColor=`rgba(147,197,253,${alpha})`;
+      c.beginPath();c.arc(hitX,p.y,MELEE_RANGE,0,Math.PI*2);c.stroke();
+      c.shadowBlur=0;
+    }
+    if(this.lastAIBasicT && now-this.lastAIBasicT<200){
+      const alpha=(1-(now-this.lastAIBasicT)/200)*0.6;
+      const e=this.enemy;
+      const dir=e.facing==='right'?1:-1;
+      const hitX=e.x+dir*MELEE_RANGE/2;
+      c.strokeStyle=`rgba(251,146,60,${alpha})`;
+      c.lineWidth=3;c.shadowBlur=12;c.shadowColor=`rgba(251,146,60,${alpha})`;
+      c.beginPath();c.arc(hitX,e.y,MELEE_RANGE,0,Math.PI*2);c.stroke();
+      c.shadowBlur=0;
+    }
+    
     // Danger warning
     const p=this.player;
     if(p.isInDanger()&&p.dangerTimer>0){
