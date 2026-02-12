@@ -494,9 +494,12 @@ function isMobileDevice(){
 }
 function applyMobileUI(){
   const mobile=isMobileDevice();
-  document.getElementById('joystick-zone').style.display=mobile?'block':'none';
-  document.getElementById('mobile-actions').style.display=mobile?'flex':'none';
-  document.getElementById('mobile-skill-ui').style.display=mobile?'flex':'none';
+  const jz=document.getElementById('joystick-zone');
+  if(jz) jz.style.display = mobile ? 'block' : 'none';
+  const compact=document.getElementById('mobile-compact-ui');
+  if(compact) compact.style.display = mobile ? 'flex' : 'none';
+  const msu=document.getElementById('mobile-skill-ui');
+  if(msu) msu.style.display = mobile ? 'flex' : 'none';
 }
 window.addEventListener('resize',applyMobileUI);
 
@@ -516,7 +519,7 @@ const keys={};
 window.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Space') e.preventDefault();
-  if(G.state!=='playing') return;
+  if(typeof G==='undefined' || G.state!=='playing') return;
   ['1','2','3','4'].forEach((k,i)=>{if(e.key===k) G.castSpell(i);});
   ['KeyQ','KeyW','KeyE','KeyR'].forEach((k,i)=>{if(e.code===k) G.summon(i);});
 });
@@ -598,15 +601,25 @@ window.addEventListener('mouseup',()=>{if(_joyMD){_joyMD=false;_joyReset();}});
 // ── Mobile action buttons ──
 let mobileShoot=false;
 const mobShoot=document.getElementById('mob-shoot');
-mobShoot.addEventListener('touchstart',e=>{e.preventDefault();mobileShoot=true;},{passive:false});
-mobShoot.addEventListener('touchend',e=>{e.preventDefault();mobileShoot=false;},{passive:false});
-mobShoot.addEventListener('mousedown',()=>mobileShoot=true);
-mobShoot.addEventListener('mouseup',()=>mobileShoot=false);
+if(mobShoot){
+  mobShoot.addEventListener('touchstart',e=>{e.preventDefault();mobileShoot=true;},{passive:false});
+  mobShoot.addEventListener('touchend',e=>{e.preventDefault();mobileShoot=false;},{passive:false});
+  mobShoot.addEventListener('mousedown',()=>mobileShoot=true);
+  mobShoot.addEventListener('mouseup',()=>mobileShoot=false);
+}
 
-document.getElementById('mob-spell1').addEventListener('touchstart',e=>{e.preventDefault();G.castSpell(0);},{passive:false});
-document.getElementById('mob-spell1').addEventListener('click',()=>G.castSpell(0));
-document.getElementById('mob-spell2').addEventListener('touchstart',e=>{e.preventDefault();G.castSpell(2);},{passive:false});
-document.getElementById('mob-spell2').addEventListener('click',()=>G.castSpell(2));
+// Older/mobile-specific single-button ids may not exist in the current markup.
+// Guard them to avoid script errors; actual mobile skill buttons are wired below.
+const ms1=document.getElementById('mob-spell1');
+if(ms1){
+  ms1.addEventListener('touchstart',e=>{e.preventDefault();G.castSpell(0);},{passive:false});
+  ms1.addEventListener('click',()=>G.castSpell(0));
+}
+const ms2=document.getElementById('mob-spell2');
+if(ms2){
+  ms2.addEventListener('touchstart',e=>{e.preventDefault();G.castSpell(2);},{passive:false});
+  ms2.addEventListener('click',()=>G.castSpell(2));
+}
 
 // 모바일 콤팩트 버튼 - 스펠/크리처 선택 모달 열기
 document.getElementById('mob-quick-spell').addEventListener('click',()=>{
