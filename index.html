@@ -369,6 +369,7 @@ body{
       <div id="hud-mid">
         <div id="round-info">ROUND 1</div>
         <div id="timer">0:00</div>
+        <div id="selectorIndicator" style="font-size:11px;color:#f59e0b;font-weight:800;display:none;margin-top:2px;">선택</div>
         <div class="pips"><div class="pip" id="pip0"></div><div class="pip" id="pip1"></div><div class="pip" id="pip2"></div><div class="pip" id="pip3"></div></div>
       </div>
       <div class="hud-side right">
@@ -516,12 +517,72 @@ function switchTab(t){
 //  KEYBOARD INPUT
 // ══════════════════════════════════════════════
 const keys={};
+let selectorMode=null; // 'spell' or 'creature' when user presses Q/W first
+let selectorTimer=null;
+const SELECTOR_TIMEOUT=1200; // ms to wait for second key
+
+function setSelectorIndicator(mode){
+  const el=document.getElementById('selectorIndicator');
+  if(!el) return;
+  if(mode){
+    el.textContent = mode==='spell' ? '선택: 스펠' : '선택: 크리처';
+    el.style.display='block';
+    el.style.opacity='1';
+    // fade after timeout
+    setTimeout(()=>{
+      el.style.transition='opacity 200ms';
+      el.style.opacity='0';
+      setTimeout(()=>{ if(el) el.style.display='none'; },220);
+    }, SELECTOR_TIMEOUT-220);
+  } else {
+    el.style.display='none';
+    el.style.opacity='0';
+  }
+}
 window.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Space') e.preventDefault();
   if(typeof G==='undefined' || G.state!=='playing') return;
+
+  // If user is in selector mode (pressed Q or W), interpret QWER for selection
+  if(selectorMode){
+    const map={'KeyQ':0,'KeyW':1,'KeyE':2,'KeyR':3};
+    if(map.hasOwnProperty(e.code)){
+      const idx=map[e.code];
+      if(selectorMode==='spell') G.castSpell(idx);
+      else if(selectorMode==='creature') G.summon(idx);
+      // clear selector
+      selectorMode=null; if(selectorTimer){clearTimeout(selectorTimer);selectorTimer=null;} setSelectorIndicator(null);
+      e.preventDefault();
+      return;
+    }
+  }
+
+  // Start selector mode when pressing Q (spells) or W (creatures)
+  if(e.code==='KeyQ' || e.code==='KeyW'){
+    selectorMode = e.code==='KeyQ' ? 'spell' : 'creature';
+    if(selectorTimer) clearTimeout(selectorTimer);
+    setSelectorIndicator(selectorMode);
+    selectorTimer = setTimeout(()=>{ selectorMode=null; selectorTimer=null; setSelectorIndicator(null); }, SELECTOR_TIMEOUT);
+    // briefly show the relevant panel if available
+    const panel=document.getElementById('skillPanel');
+    const panelTitle=document.getElementById('skill-panel-title');
+    if(panel && panelTitle){
+      if(selectorMode==='spell') panelTitle.textContent='Q 스펠';
+      else panelTitle.textContent='W 크리처';
+      panel.querySelectorAll('.action-btn').forEach(btn=>{
+        const isSpell=btn.classList.contains('spell');
+        btn.style.display = (selectorMode==='spell'?isSpell:!isSpell)?'flex':'none';
+      });
+      // restore after timeout
+      setTimeout(()=>{ if(!selectorMode){ panel.querySelectorAll('.action-btn').forEach(btn=>btn.style.display='flex'); panelTitle.textContent='Q 스펠'; setSelectorIndicator(null);} }, SELECTOR_TIMEOUT+50);
+    }
+    e.preventDefault();
+    return;
+  }
+
+  // Number keys still directly cast spells (1-4)
   ['1','2','3','4'].forEach((k,i)=>{if(e.key===k) G.castSpell(i);});
-  ['KeyQ','KeyW','KeyE','KeyR'].forEach((k,i)=>{if(e.code===k) G.summon(i);});
 });
 window.addEventListener('keyup',e=>{keys[e.code]=false;});
 
@@ -1146,22 +1207,42 @@ class AICtrl{
     e.x=clamp(e.x,28,CFG.W-28);e.y=clamp(e.y,55,CFG.H-28);
     e.facing=e.x<p.x?'right':'left';
     if(now>this.spellT&&e.mana>=2){
-      const def=(e.hp<e.maxHp*.5)?SPELL_DEFS[1]:(Math.random()<.55?SPELL_DEFS[0]:SPELL_DEFS[2]);
-      if(e.mana>=def.cost){
-        if(def.type==='heal'){e.hp=Math.min(e.maxHp,e.hp+def.heal);}
-        else{
-          const ang=Math.atan2(p.y-e.y,p.x-e.x);
+      // Smarter spell selection: prefer heal when low hp; require enough mana and
+      // add slightly longer cooldowns to reduce spam.
+      let def=null;
+      const hpLow = e.hp < e.maxHp * 0.6;
+      if(hpLow && e.mana >= SPELL_DEFS[1].cost) {
+        def = SPELL_DEFS[1];
+      } else {
+        // choose offensive spells only if we have a bit more mana than cost
+        const candidates = SPELL_DEFS.filter(d=> e.mana >= d.cost + (d.type==='proj'?1:0));
+        if(candidates.length>0){
+          def = candidates[Math.floor(Math.random()*candidates.length)];
+        }
+      }
+      if(def && e.mana>=def.cost){
+        if(def.type==='heal'){
+          e.hp = Math.min(e.maxHp, e.hp + def.heal);
+        } else {
+          const ang = Math.atan2(p.y-e.y, p.x-e.x);
           projs.push(new Projectile({x:e.x-28,y:e.y-8,vx:Math.cos(ang)*def.spd,vy:Math.sin(ang)*def.spd,dmg:def.dmg,size:def.size,color:def.color,owner:'enemy'}));
         }
-        e.mana-=def.cost;
-        this.spellT=now+rnd(1000,2000);
+        e.mana -= def.cost;
+        // set longer cooldown for offensive spells, even longer for heal
+        this.spellT = now + (def.type==='heal' ? rnd(2000,3500) : rnd(1400,3000));
       }
     }
-    if(now>this.creatureT&&e.mana>=2&&e.creatures.length<5){
-      const def=CREATURE_DEFS[Math.floor(Math.random()*CREATURE_DEFS.length)];
-      if(e.mana>=def.cost){
+    if(now>this.creatureT && e.creatures.length<5){
+      // Pick a creature we can afford and avoid spamming summons
+      const affordable = CREATURE_DEFS.filter(d=> e.mana >= d.cost + 1);
+      if(affordable.length>0 && Math.random()<0.5){
+        const def = affordable[Math.floor(Math.random()*affordable.length)];
         e.creatures.push(new Creature(def,'enemy',e.x-50,e.y+rnd(-50,50)));
-        e.mana-=def.cost;this.creatureT=now+rnd(1500,3000);
+        e.mana -= def.cost;
+        this.creatureT = now + rnd(2500,4500);
+      } else {
+        // delay further attempts
+        this.creatureT = now + rnd(1200,2600);
       }
     }
     e.basicCd-=16;
