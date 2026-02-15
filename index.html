@@ -74,7 +74,7 @@ body{
 
 /* ── 360° JOYSTICK ── */
 #joystick-zone{
-  position:absolute;bottom:12px;left:12px;
+  position:absolute;bottom:12px;left:50px; /* left:12px → 50px */
   width:128px;height:128px;
   display:none;z-index:40;touch-action:none;user-select:none;
 }
@@ -97,7 +97,7 @@ body{
 
 /* ── MOBILE UI ── */
 #mobile-compact-ui{
-  position:absolute;bottom:20px;right:20px;
+  position:absolute;bottom:20px;right:60px; /* right:20px → 60px */
   display:none;flex-direction:column;gap:8px;align-items:flex-end;
   z-index:40;
 }
@@ -114,7 +114,7 @@ body{
 #mobile-skill-panel{
   display:none;
   position:absolute;
-  bottom:70px;right:20px;
+  bottom:70px;right:60px; /* right:20px → 60px */
   background:rgba(10,10,18,.95);
   border:2px solid rgba(168,85,247,.5);
   border-radius:12px;
@@ -573,6 +573,7 @@ class Creature{
     this.currentHp=def.hp;this.dead=false;
     this.ranged=!!def.ranged;
     this.range=def.range||0;
+    this.tempId=Math.random().toString(36).substr(2,9); // 고유 ID
   }
   update(target, enemyCreatures){
     if(this.shield||this.spd===0) return null;
@@ -1080,7 +1081,21 @@ const G={
     if(this.isMulti){
       this._ivals.net=setInterval(()=>{
         if(this.state!=='playing'||!this.player) return;
-        netSend({t:'s',x:Math.round(this.player.x),y:Math.round(this.player.y),f:this.player.facing,hp:Math.round(this.player.hp*10)/10,mn:Math.round(this.player.mana*10)/10});
+        netSend({
+          t:'s',
+          x:Math.round(this.player.x),
+          y:Math.round(this.player.y),
+          f:this.player.facing,
+          hp:Math.round(this.player.hp*10)/10,
+          mn:Math.round(this.player.mana*10)/10,
+          cr:this.player.creatures.map(c=>({
+            i:c.id,
+            tid:c.tempId,
+            x:Math.round(c.x),
+            y:Math.round(c.y),
+            h:c.currentHp
+          }))
+        });
       },50); // 20Hz
     }
     
@@ -1120,8 +1135,15 @@ const G={
     const def=CREATURE_DEFS[i],p=this.player;
     if(!def||p.mana<def.cost||p.creatures.length>=8) return;
     const cx=p.x+(p.facing==='right'?52:-52),cy=p.y+rnd(-60,60);
-    p.creatures.push(new Creature(def,'player',cx,cy));
+    const newCreature = new Creature(def,'player',cx,cy);
+    p.creatures.push(newCreature);
     p.mana-=def.cost;
+    
+    // 멀티플레이 크리처 소환 전송
+    if(this.isMulti){
+      netSend({t:'cr',i:i,x:cx,y:cy,tid:newCreature.tempId});
+    }
+    
     this.updateHUD();
   },
 
@@ -1378,8 +1400,16 @@ const G={
     // Entities
     this.orbs.forEach(o=>o.draw(c));
     this.projectiles.forEach(pj=>pj.draw(c));
+    
+    // 크리처 그리기 (멀티플레이 시 remote 크리처도 포함)
     this.player.creatures.forEach(cr=>cr.draw(c));
-    this.enemy.creatures.forEach(cr=>cr.draw(c));
+    if(this.enemy){
+      this.enemy.creatures.forEach(cr=>cr.draw(c));
+    }
+    if(this.remote && this.remote !== this.enemy){
+      this.remote.creatures.forEach(cr=>cr.draw(c));
+    }
+    
     this.particles.forEach(pt=>pt.draw(c));
     this.enemy.draw(c);
     this.player.draw(c);
@@ -1500,6 +1530,28 @@ function onData(raw){
       G.remote.facing=d.f;
       G.remote.hp=d.hp;
       G.remote.mana=d.mn;
+      
+      // 크리처 동기화
+      if(d.cr){
+        // 기존 크리처 업데이트
+        G.remote.creatures = d.cr.map(cData => {
+          const def = CREATURE_DEFS.find(cd => cd.id === cData.i);
+          if(!def) return null;
+          const existing = G.remote.creatures.find(c => c.tempId === cData.tid);
+          if(existing){
+            existing.x = cData.x;
+            existing.y = cData.y;
+            existing.currentHp = cData.h;
+            existing.dead = false;
+            return existing;
+          } else {
+            const newCreature = new Creature(def, 'enemy', cData.x, cData.y);
+            newCreature.tempId = cData.tid;
+            newCreature.currentHp = cData.h;
+            return newCreature;
+          }
+        }).filter(c => c !== null);
+      }
       break;
     case 'p': // Projectile
       G.projectiles.push(new Projectile({
@@ -1524,6 +1576,16 @@ function onData(raw){
         if(G.remote){
           G.remote.hp=d.hp;
           G.particles.push(new Particle(G.remote.x,G.remote.y,'#34d399',14));
+        }
+      }
+      break;
+    case 'cr': // Creature summon
+      if(G.remote){
+        const def = CREATURE_DEFS[d.i];
+        if(def){
+          const newCreature = new Creature(def, 'enemy', d.x, d.y);
+          newCreature.tempId = d.tid;
+          G.remote.creatures.push(newCreature);
         }
       }
       break;
