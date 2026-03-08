@@ -208,6 +208,16 @@ function updateHUD(){
   document.getElementById('mp-p1').style.width=(me.mp/me.maxMp*100)+'%';
   document.getElementById('hp-p2').style.width=(opp.hp/opp.maxHp*100)+'%';
   document.getElementById('mp-p2').style.width=(opp.mp/opp.maxMp*100)+'%';
+  // 숫자 표시
+  const h1n=document.getElementById('hp-p1-num'), m1n=document.getElementById('mp-p1-num');
+  const h2n=document.getElementById('hp-p2-num'), m2n=document.getElementById('mp-p2-num');
+  if(h1n) h1n.textContent=Math.max(0,Math.ceil(me.hp));
+  if(m1n) m1n.textContent=Math.max(0,Math.ceil(me.mp));
+  if(h2n) h2n.textContent=Math.max(0,Math.ceil(opp.hp));
+  if(m2n) m2n.textContent=Math.max(0,Math.ceil(opp.mp));
+  // HP가 낮으면 빨갛게
+  if(h1n) h1n.style.color=me.hp<30?'#ff4444':me.hp<60?'#ffaa44':'';
+  if(h2n) h2n.style.color=opp.hp<30?'#ff4444':opp.hp<60?'#ffaa44':'';
   document.getElementById('score-p1').textContent=scores[isJoin?1:0];
   document.getElementById('score-p2').textContent=scores[isJoin?0:1];
   SPELLS.forEach((_,i)=>{
