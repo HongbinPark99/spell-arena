@@ -129,20 +129,23 @@ function gameUpdate(dt){
   // 검
   s.players.forEach(atk=>{
     if(!atk.swordActive)return;
-    const sx=atk.x+Math.cos(atk.swordAngle)*50*atk.facing, sy=atk.y+Math.sin(atk.swordAngle)*50;
+    // 검 선분: 플레이어 중심(base)에서 tip까지
+    const bx=atk.x, by=atk.y;
+    const tx=atk.x+Math.cos(atk.swordAngle)*55*atk.facing;
+    const ty=atk.y+Math.sin(atk.swordAngle)*55;
     s.players.forEach(tgt=>{
       if(tgt.id===atk.id||!tgt.alive)return;
-      if(Math.hypot(sx-tgt.x,sy-tgt.y)<tgt.radius+8){
+      if(pointToSegDist(tgt.x,tgt.y,bx,by,tx,ty)<tgt.radius+14){
         tgt.takeDamage(32); atk.swordActive=false;
-        spawnHitFX(sx,sy,atk.color); shakeScreen(.28); playSFX('swordHit',0.6);
+        spawnHitFX(tx,ty,atk.color); shakeScreen(.28); playSFX('swordHit',0.6);
         if(!tgt.alive)handleDeath(tgt,atk);
       }
     });
     s.creatures.forEach(c=>{
       if(c.ownerId===atk.id||!c.alive)return;
-      if(Math.hypot(sx-c.x,sy-c.y)<c.radius+10){
+      if(pointToSegDist(c.x,c.y,bx,by,tx,ty)<c.radius+14){
         c.takeDamage(40); atk.swordActive=false;
-        spawnHitFX(sx,sy,atk.color); playSFX('swordHit',0.5);
+        spawnHitFX(tx,ty,atk.color); playSFX('swordHit',0.5);
         if(!c.alive){spawnDeathFX(c.x,c.y,c.color); showNotif(c.def.emoji+' '+c.def.name+' 처치!',c.color); playSFX('death',0.5);}
       }
     });
@@ -218,6 +221,15 @@ function updateHUD(){
   });
 }
 
+// 점과 선분 사이 최단 거리 (검 히트박스용)
+function pointToSegDist(px,py,ax,ay,bx,by){
+  const dx=bx-ax, dy=by-ay;
+  const lenSq=dx*dx+dy*dy;
+  if(lenSq===0)return Math.hypot(px-ax,py-ay);
+  const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/lenSq));
+  return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
+}
+
 function handleDeath(dead,killer){
   spawnDeathFX(dead.x,dead.y,dead.color); shakeScreen(.5); playSFX('death',0.7);
   scores[killer.id-1]++;
@@ -244,6 +256,11 @@ function endRound(){
 function showResult(){
   showScreen('result-screen');
   cancelAnimationFrame(rafId); rafId=null;
+
+  // 온라인이면 난이도변경/메인메뉴 버튼 숨김
+  const offlineBtns=document.getElementById('offline-btns');
+  if(offlineBtns) offlineBtns.style.display=netRole?'none':'';
+
   let winner=null;
   if(scores[0]>scores[1])winner=1; else if(scores[1]>scores[0])winner=2;
   const myId=netRole==='join'?2:1;
@@ -269,9 +286,12 @@ function showResult(){
 
 function rematch(){
   totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
-  GS=createGS(); if(netRole)GS.players[1].isAI=false;
+  GS=createGS();
+  if(netRole) GS.players[1].isAI=false;
   showScreen('game-screen'); resetGameHUD();
   paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);
+  // 온라인: HOST가 rematch 신호 전송
+  if(netRole==='host'&&netConn){ try{netConn.send({type:'rematch'});}catch(e){} }
 }
 function startGame(diff){
   difficulty=diff; scores=[0,0]; roundNum=1; totalStats={kills:0,spells:0,summons:0};

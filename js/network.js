@@ -77,11 +77,22 @@ function joinGame(){
 
 function handleNetData(data){
   if(!data||!data.type)return;
-  if(data.type==='start' &&netRole==='join') startOnlineGame('join');
-  if(data.type==='input' &&netRole==='host') remoteP2Input=data;
-  if(data.type==='state' &&netRole==='join') applyNetState(data.gs);
-  if(data.type==='action'&&netRole==='host') applyRemoteAction(data);
+  if(data.type==='start'  &&netRole==='join') startOnlineGame('join');
+  if(data.type==='input'  &&netRole==='host') remoteP2Input=data;
+  if(data.type==='state'  &&netRole==='join') applyNetState(data.gs);
+  if(data.type==='action' &&netRole==='host') applyRemoteAction(data);
   if(data.type==='sound') playSFX(data.sfx,data.vol||0.5);
+  // HOST가 rematch 시작 → JOIN도 새 게임 시작
+  if(data.type==='rematch'&&netRole==='join'){
+    totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
+    joinCreatureCache={};
+    GS=createGS();
+    GS.players[1].isAI=false;
+    showScreen('game-screen'); resetGameHUD();
+    paused=false; lastTime=performance.now();
+    if(rafId) cancelAnimationFrame(rafId);
+    rafId=requestAnimationFrame(tick);
+  }
 }
 
 function startOnlineGame(role){
@@ -180,7 +191,20 @@ function applyNetState(ns){
   GS.timer=ns.timer; GS.gameOver=ns.gameOver;
   if(ns.shakeX){GS.shakeX=ns.shakeX; GS.shakeY=ns.shakeY;}
   if(ns.started&&!GS.started){GS.started=true; showOverlay('FIGHT!','#f5c842',1.2);}
-  if(ns.gameOver&&!GS._resultShown){GS._resultShown=true; updateHUD(); setTimeout(showResult,2800);}
+  if(ns.gameOver&&!GS._resultShown){
+    GS._resultShown=true;
+    updateHUD();
+    // gameOver 오버레이 표시 후 결과 화면
+    const myId=2; // JOIN은 항상 P2
+    const p1=GS.players[0], p2=GS.players[1];
+    let msg='DRAW!', col='#f5c842';
+    if(!p1.alive){msg='YOU WIN!'; col='#4af0ff';}
+    else if(!p2.alive){msg='DEFEATED!'; col='#ff6b35';}
+    else if(p1.hp<p2.hp){msg='YOU WIN!'; col='#4af0ff';}
+    else if(p2.hp<p1.hp){msg='DEFEATED!'; col='#ff6b35';}
+    showOverlay(msg, col, 2.4);
+    setTimeout(showResult, 2800);
+  }
 }
 
 // HOST: JOIN 즉각 액션 처리 (스펠/소환/검)
