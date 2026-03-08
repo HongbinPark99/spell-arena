@@ -271,13 +271,12 @@ function endRound(){
 }
 
 function showResult(){
-  showScreen('result-screen');
   cancelAnimationFrame(rafId); rafId=null;
+  showScreen('result-screen');
 
-  // 온라인이면 장비/난이도 버튼 숨김
   const online=!!netRole;
   const btnLo=document.getElementById('btn-loadout'), btnDiff=document.getElementById('btn-diff');
-  if(btnLo)  btnLo .style.display=online?'none':'';
+  if(btnLo)  btnLo.style.display=online?'none':'';
   if(btnDiff)btnDiff.style.display=online?'none':'';
 
   let winner=null;
@@ -287,47 +286,59 @@ function showResult(){
   const verdictEl=document.getElementById('res-verdict');
   const winEl    =document.getElementById('res-winner');
   const subEl    =document.getElementById('res-subtitle');
-
-  // 결과에 따라 배경·색 변경
-  const rs=document.getElementById('result-screen');
-  rs.style.background='';
+  const rs       =document.getElementById('result-screen');
 
   if(winner===myId){
-    rs.style.background='radial-gradient(ellipse at 50% 30%,#0a2a3a 0%,#05030f 70%)';
-    verdictEl.textContent='🏆 VICTORY'; verdictEl.style.color='#f5c842'; verdictEl.style.textShadow='0 0 60px #f5c842,0 0 120px #f5c84255';
-    winEl.textContent='YOU WIN!'; winEl.style.color='#4af0ff'; winEl.style.textShadow='0 0 50px #4af0ff';
-    winEl.style.animation='winPop .6s cubic-bezier(.2,1.4,.5,1) forwards';
-    subEl.textContent='상대 마법사를 완전히 제압했습니다!'; subEl.style.color='#a3f0cc';
+    rs.style.background='radial-gradient(ellipse at 50% 20%,#0d2a10 0%,#05030f 65%)';
+    verdictEl.textContent='🏆 VICTORY';
+    verdictEl.style.cssText='color:#f5c842;text-shadow:0 0 60px #f5c842,0 0 120px #f5c84255;';
+    winEl.textContent='YOU WIN!';
+    winEl.style.cssText='color:#4af0ff;text-shadow:0 0 50px #4af0ff,0 0 100px #4af0ff55;';
+    subEl.textContent='상대 마법사를 완전히 제압했습니다!';
+    subEl.style.color='#a3f0cc';
     spawnResultParticles('win');
   } else if(winner){
-    rs.style.background='radial-gradient(ellipse at 50% 30%,#2a0a0a 0%,#05030f 70%)';
-    verdictEl.textContent='💀 DEFEATED'; verdictEl.style.color='#ff4444'; verdictEl.style.textShadow='0 0 60px #ff4444';
-    winEl.textContent='DEFEATED...'; winEl.style.color='#ff6b35'; winEl.style.textShadow='0 0 50px #ff4400';
-    winEl.style.animation='winPop .6s cubic-bezier(.2,1.4,.5,1) forwards';
-    subEl.textContent='더 강해져서 돌아오세요.'; subEl.style.color='#ffaa88';
+    rs.style.background='radial-gradient(ellipse at 50% 20%,#2a0808 0%,#05030f 65%)';
+    verdictEl.textContent='💀 DEFEAT';
+    verdictEl.style.cssText='color:#ff4444;text-shadow:0 0 60px #ff4444,0 0 120px #ff000055;';
+    winEl.textContent='DEFEATED...';
+    winEl.style.cssText='color:#ff6b35;text-shadow:0 0 50px #ff4400;';
+    subEl.textContent='더 강해져서 돌아오세요.';
+    subEl.style.color='#ffaa88';
     spawnResultParticles('lose');
   } else {
-    rs.style.background='radial-gradient(ellipse at 50% 30%,#1a1028 0%,#05030f 70%)';
-    verdictEl.textContent='⚖ DRAW'; verdictEl.style.color='#c084fc'; verdictEl.style.textShadow='0 0 60px #a855f7';
-    winEl.textContent='DRAW!'; winEl.style.color='#e8e0ff'; winEl.style.textShadow='0 0 40px #a855f7';
-    winEl.style.animation='winPop .6s cubic-bezier(.2,1.4,.5,1) forwards';
-    subEl.textContent='막상막하의 혈전이었습니다.'; subEl.style.color='#c084fc';
+    rs.style.background='radial-gradient(ellipse at 50% 20%,#180d28 0%,#05030f 65%)';
+    verdictEl.textContent='⚖ DRAW';
+    verdictEl.style.cssText='color:#c084fc;text-shadow:0 0 60px #a855f7;';
+    winEl.textContent='무승부!';
+    winEl.style.cssText='color:#e8e0ff;text-shadow:0 0 40px #a855f7;';
+    subEl.textContent='막상막하의 혈전이었습니다.';
+    subEl.style.color='#c084fc';
     spawnResultParticles('draw');
   }
 
-  // 점수판
-  const s1el=document.getElementById('res-s1'), s2el=document.getElementById('res-s2');
-  const p1box=document.getElementById('res-p1-score'), p2box=document.getElementById('res-p2-score');
-  s1el.textContent=scores[0]; s2el.textContent=scores[1];
-  p1box.style.boxShadow=winner===1?'0 0 30px rgba(74,240,255,.5)':'';
-  p2box.style.boxShadow=winner===2?'0 0 30px rgba(255,107,53,.5)':'';
-  p1box.style.borderColor=winner===1?'#4af0ff':'';
-  p2box.style.borderColor=winner===2?'#ff6b35':'';
+  // 점수카드
+  const s1=document.getElementById('res-s1'), s2=document.getElementById('res-s2');
+  const c1=document.getElementById('res-p1-card'), c2=document.getElementById('res-p2-card');
+  if(s1) s1.textContent=scores[0];
+  if(s2) s2.textContent=scores[1];
+  if(c1){
+    c1.style.borderColor=winner===1?'#4af0ff':'rgba(100,60,200,0.38)';
+    c1.style.boxShadow=winner===1?'0 0 40px rgba(74,240,255,.5),inset 0 0 30px rgba(74,240,255,.08)':'';
+    c1.style.transform=winner===1?'scale(1.06)':'scale(1)';
+  }
+  if(c2){
+    c2.style.borderColor=winner===2?'#ff6b35':'rgba(100,60,200,0.38)';
+    c2.style.boxShadow=winner===2?'0 0 40px rgba(255,107,53,.5),inset 0 0 30px rgba(255,107,53,.08)':'';
+    c2.style.transform=winner===2?'scale(1.06)':'scale(1)';
+  }
 
-  document.getElementById('rs-kills').textContent=totalStats.kills;
-  document.getElementById('rs-spells').textContent=totalStats.spells;
-  document.getElementById('rs-summons').textContent=totalStats.summons;
-  document.getElementById('rs-score').textContent=scores[0]+'-'+scores[1];
+  const rk=document.getElementById('rs-kills'), rs2=document.getElementById('rs-spells');
+  const rsm=document.getElementById('rs-summons'), rsc=document.getElementById('rs-score');
+  if(rk) rk.textContent=totalStats.kills;
+  if(rs2)rs2.textContent=totalStats.spells;
+  if(rsm)rsm.textContent=totalStats.summons;
+  if(rsc)rsc.textContent=scores[0]+' — '+scores[1];
 }
 
 function spawnResultParticles(type){

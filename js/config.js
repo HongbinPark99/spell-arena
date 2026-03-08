@@ -2,8 +2,19 @@
 
 let curScreen = 'title-screen';
 function showScreen(id) {
-  document.getElementById(curScreen).classList.add('hidden');
-  document.getElementById(id).classList.remove('hidden');
+  // 모든 스크린 숨기기
+  document.querySelectorAll('.screen').forEach(el => {
+    el.classList.add('hidden');
+    el.style.display = 'none';
+    el.style.opacity = '';
+  });
+  // 게임 스크린은 display:block, 나머지는 flex
+  const next = document.getElementById(id);
+  if(next) {
+    next.classList.remove('hidden');
+    next.style.display = id === 'game-screen' ? 'block' : 'flex';
+    next.style.opacity = '1';
+  }
   curScreen = id;
 }
 function changeDiff() { if(rafId) cancelAnimationFrame(rafId); GS=null; showScreen('diff-screen'); }

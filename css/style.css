@@ -11,7 +11,7 @@ body{background:var(--bg);color:var(--text);font-family:'Raleway',sans-serif;ove
 
 /* ── 화면 전환 ── */
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;transition:opacity .4s;}
-.screen.hidden{display:none !important;}
+.screen.hidden{opacity:0;pointer-events:none;visibility:hidden;}
 
 /* ══ 타이틀 화면 ══════════════════════════ */
 #title-screen{
@@ -120,7 +120,7 @@ body{background:var(--bg);color:var(--text);font-family:'Raleway',sans-serif;ove
 /* ══ 게임 캔버스 ═════════════════════════ */
 #game-screen{z-index:1;display:block;}
 #game-screen.hidden{display:none !important;}
-#result-screen{z-index:200;}
+#result-screen{z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;}
 canvas{position:absolute;top:0;left:0;touch-action:none;}
 
 /* ══ HUD ══════════════════════════════ */
@@ -358,3 +358,141 @@ kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px
   transition:color .3s;
 }
 .bar-num.mp-num { color:#c084fc; text-shadow:0 0 6px rgba(168,85,247,.4); }
+
+/* ══════════════════════════════════════
+   결과 화면 — 완전 새설계
+══════════════════════════════════════ */
+#result-screen {
+  z-index:200;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:22px;
+  padding:24px 16px;
+  background:radial-gradient(ellipse at 50% 20%,#0d2a10 0%,#05030f 65%);
+}
+
+#result-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;}
+.res-particle{position:absolute;border-radius:50%;}
+@keyframes resPFloat{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-110vh) scale(.5) rotate(720deg);opacity:0}}
+@keyframes resPDrop{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(110vh) scale(.5) rotate(-360deg);opacity:0}}
+
+/* 승패 텍스트 */
+.res-verdict-wrap { text-align:center; z-index:2; }
+
+.res-verdict {
+  font-family:'Cinzel Decorative',serif;
+  font-size:clamp(1.6rem,5vw,3rem);
+  font-weight:700; letter-spacing:.25em;
+  animation:resIn .7s cubic-bezier(.2,1.3,.4,1) forwards;
+}
+@keyframes resIn{from{opacity:0;transform:scale(.3) translateY(-40px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+.res-winner {
+  font-family:'Cinzel Decorative',serif;
+  font-size:clamp(2rem,7vw,4.2rem);
+  font-weight:900; letter-spacing:.15em;
+  margin-top:6px;
+  animation:resIn .7s .15s cubic-bezier(.2,1.3,.4,1) both;
+}
+.res-subtitle {
+  font-family:'Raleway',sans-serif;
+  font-size:.9rem; color:var(--dim); letter-spacing:.12em;
+  margin-top:8px;
+  animation:resIn .5s .3s ease both;
+}
+
+/* 점수 카드 */
+.res-score-row {
+  display:flex; align-items:center; gap:20px;
+  z-index:2; flex-wrap:wrap; justify-content:center;
+}
+.res-player-card {
+  text-align:center; padding:20px 32px;
+  border:2px solid rgba(100,60,200,.4);
+  background:linear-gradient(135deg,rgba(12,6,28,.97),rgba(20,10,38,.95));
+  clip-path:polygon(12px 0%,100% 0%,calc(100% - 12px) 100%,0% 100%);
+  min-width:150px; transition:all .5s ease;
+  animation:resIn .6s .25s ease both;
+}
+.res-card-name {
+  font-family:'Cinzel',serif; font-size:.7rem;
+  color:var(--dim); letter-spacing:.2em; margin-bottom:10px;
+}
+.res-card-score {
+  font-family:'Cinzel Decorative',serif;
+  font-size:4rem; font-weight:900;
+  color:var(--gold); line-height:1;
+  text-shadow:0 0 30px rgba(245,200,66,.5);
+}
+.res-card-label {
+  font-family:'Cinzel',serif; font-size:.55rem;
+  color:var(--dim); letter-spacing:.2em; margin-top:8px;
+}
+.res-vs {
+  font-family:'Cinzel Decorative',serif;
+  font-size:1.6rem; color:var(--dim);
+  text-shadow:0 0 20px rgba(168,85,247,.4);
+}
+
+/* 통계 */
+.res-stats-row {
+  display:flex; gap:12px; flex-wrap:wrap;
+  justify-content:center; z-index:2;
+  animation:resIn .5s .4s ease both;
+}
+.res-stat {
+  display:flex; flex-direction:column; align-items:center;
+  padding:10px 18px;
+  border:1px solid rgba(100,60,200,.3);
+  background:rgba(10,5,22,.9);
+  clip-path:polygon(7px 0%,100% 0%,calc(100% - 7px) 100%,0% 100%);
+  min-width:80px;
+}
+.res-stat-val {
+  font-family:'Cinzel Decorative',serif;
+  font-size:1.6rem; font-weight:700; color:var(--gold);
+  line-height:1.1;
+}
+.res-stat-lbl {
+  font-family:'Cinzel',serif; font-size:.5rem;
+  color:var(--dim); letter-spacing:.2em; margin-top:4px;
+}
+
+/* 버튼 그룹 */
+.res-buttons {
+  display:flex; gap:10px; flex-wrap:wrap;
+  justify-content:center; z-index:2;
+  animation:resIn .5s .5s ease both;
+}
+.res-btn {
+  font-family:'Cinzel',serif; font-size:.88rem;
+  letter-spacing:.2em; padding:13px 30px;
+  background:transparent; cursor:pointer;
+  border:1px solid rgba(100,60,200,.4); color:var(--text);
+  clip-path:polygon(9px 0%,100% 0%,calc(100% - 9px) 100%,0% 100%);
+  transition:all .25s; text-transform:uppercase; position:relative;
+  overflow:hidden;
+}
+.res-btn:hover {
+  border-color:rgba(168,85,247,.7); color:#fff;
+  box-shadow:0 0 24px rgba(168,85,247,.35);
+  transform:translateY(-2px);
+}
+.res-btn-primary {
+  border-color:rgba(245,200,66,.6);
+  background:linear-gradient(135deg,rgba(200,140,0,.2),rgba(245,200,66,.06));
+  color:var(--gold); font-size:.95rem; padding:15px 40px;
+  box-shadow:0 0 28px rgba(245,200,66,.2);
+}
+.res-btn-primary:hover {
+  border-color:var(--gold); color:#fff;
+  box-shadow:0 0 44px rgba(245,200,66,.45);
+}
+.res-btn-exit {
+  border-color:rgba(255,80,80,.35); color:#ff9988;
+}
+.res-btn-exit:hover {
+  border-color:#ff4444; color:#fff;
+  box-shadow:0 0 24px rgba(255,68,68,.3);
+}

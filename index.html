@@ -245,36 +245,44 @@
      결과 화면
 ══════════════════════════════════════ -->
 <div id="result-screen" class="screen hidden">
-  <div class="cdeco tl"></div><div class="cdeco tr"></div>
-  <div class="cdeco bl"></div><div class="cdeco br"></div>
   <div id="result-particles"></div>
-  <div class="res-top">
+
+  <!-- 승패 대형 텍스트 -->
+  <div class="res-verdict-wrap">
     <div class="res-verdict" id="res-verdict">VICTORY</div>
     <div class="res-winner" id="res-winner">YOU WIN!</div>
     <div class="res-subtitle" id="res-subtitle">적 마법사를 물리쳤습니다</div>
   </div>
+
+  <!-- 점수 -->
   <div class="res-score-row">
-    <div class="res-player-score" id="res-p1-score">
-      <div class="res-player-label">⚡ PLAYER 1</div>
-      <div class="res-score-big" id="res-s1">0</div>
+    <div class="res-player-card" id="res-p1-card">
+      <div class="res-card-name">⚡ PLAYER 1</div>
+      <div class="res-card-score" id="res-s1">0</div>
+      <div class="res-card-label">ROUND WINS</div>
     </div>
-    <div class="res-vs-sep">VS</div>
-    <div class="res-player-score" id="res-p2-score">
-      <div class="res-player-label">🔥 PLAYER 2</div>
-      <div class="res-score-big" id="res-s2">0</div>
+    <div class="res-vs">VS</div>
+    <div class="res-player-card" id="res-p2-card">
+      <div class="res-card-name">🔥 PLAYER 2</div>
+      <div class="res-card-score" id="res-s2">0</div>
+      <div class="res-card-label">ROUND WINS</div>
     </div>
   </div>
-  <div class="result-stats">
-    <div class="stat-box"><div class="val" id="rs-kills">0</div><div class="lbl">KILLS</div></div>
-    <div class="stat-box"><div class="val" id="rs-spells">0</div><div class="lbl">SPELLS</div></div>
-    <div class="stat-box"><div class="val" id="rs-summons">0</div><div class="lbl">SUMMONS</div></div>
-    <div class="stat-box"><div class="val" id="rs-score">0-0</div><div class="lbl">TOTAL</div></div>
+
+  <!-- 통계 -->
+  <div class="res-stats-row">
+    <div class="res-stat"><span class="res-stat-val" id="rs-kills">0</span><span class="res-stat-lbl">KILLS</span></div>
+    <div class="res-stat"><span class="res-stat-val" id="rs-spells">0</span><span class="res-stat-lbl">SPELLS CAST</span></div>
+    <div class="res-stat"><span class="res-stat-val" id="rs-summons">0</span><span class="res-stat-lbl">SUMMONS</span></div>
+    <div class="res-stat"><span class="res-stat-val" id="rs-score">0-0</span><span class="res-stat-lbl">TOTAL SCORE</span></div>
   </div>
-  <div class="result-actions">
-    <button class="btn btn-primary" onclick="rematch()">🔄 재도전</button>
-    <button class="btn" onclick="showScreen('loadout-screen');initLoadoutUI()" id="btn-loadout">⚗ 장비 변경</button>
-    <button class="btn" onclick="changeDiff()" id="btn-diff">⚔ 난이도 변경</button>
-    <button class="btn btn-exit" onclick="goMenu()">🏠 메인 메뉴</button>
+
+  <!-- 버튼 -->
+  <div class="res-buttons">
+    <button class="res-btn res-btn-primary" onclick="rematch()">🔄 다시하기</button>
+    <button class="res-btn" onclick="showScreen('loadout-screen');initLoadoutUI()" id="btn-loadout">⚗ 장비 변경</button>
+    <button class="res-btn" onclick="changeDiff()" id="btn-diff">⚔ 난이도 변경</button>
+    <button class="res-btn res-btn-exit" onclick="goMenu()">🏠 메인 메뉴</button>
   </div>
 </div>
 
