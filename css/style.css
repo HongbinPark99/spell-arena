@@ -6,12 +6,37 @@
   --ui:rgba(8,4,22,0.94); --border:rgba(100,60,200,0.38); --text:#e8e0ff; --dim:#7868a0;
 }
 
+/* ── 화면 시스템 ── */
+.screen {
+  position:absolute; inset:0;
+  display:none;          /* showScreen()이 직접 flex/none 제어 */
+  flex-direction:column; align-items:center; justify-content:center;
+  z-index:100;
+}
+.game-screen-wrap {
+  position:absolute; inset:0;
+  display:none;
+  z-index:1;
+}
+/* 결과 화면 — game 위에 뜨는 오버레이 */
+.result-overlay {
+  position:fixed; inset:0;
+  display:none;
+  flex-direction:column; align-items:center; justify-content:center;
+  z-index:500;
+  gap:22px; padding:24px 16px;
+  background:rgba(3,1,12,0.92);
+  backdrop-filter:blur(6px);
+}
+canvas { position:absolute; top:0; left:0; touch-action:none; }
+
+
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'Raleway',sans-serif;overflow:hidden;user-select:none;touch-action:none;width:100vw;height:100vh;}
 
 /* ── 화면 전환 ── */
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;transition:opacity .4s;}
-.screen.hidden{opacity:0;pointer-events:none;visibility:hidden;}
+
 
 /* ══ 타이틀 화면 ══════════════════════════ */
 #title-screen{
@@ -118,9 +143,9 @@ body{background:var(--bg);color:var(--text);font-family:'Raleway',sans-serif;ove
 .diff-desc{font-size:.7rem;color:var(--dim);}
 
 /* ══ 게임 캔버스 ═════════════════════════ */
-#game-screen{z-index:1;display:block;}
-#game-screen.hidden{display:none !important;}
-#result-screen{z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+
+
+
 canvas{position:absolute;top:0;left:0;touch-action:none;}
 
 /* ══ HUD ══════════════════════════════ */
@@ -235,10 +260,7 @@ kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px
 .toggle.on::after{transform:translateX(22px);}
 
 /* ══ 결과 화면 ═══════════════════════════ */
-#result-screen{
-  background:radial-gradient(ellipse at 50% 30%,#0a2a3a 0%,#05030f 70%);
-  gap:18px; transition:background .6s;
-}
+
 #result-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
 .res-particle{position:absolute;border-radius:50%;bottom:-10px;}
 @keyframes resPFloat{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(-110vh) rotate(720deg);opacity:0}}
@@ -360,17 +382,9 @@ kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px
 .bar-num.mp-num { color:#c084fc; text-shadow:0 0 6px rgba(168,85,247,.4); }
 
 /* ══════════════════════════════════════
-   결과 화면 — 완전 새설계
+   결과 화면 — 오버레이
 ══════════════════════════════════════ */
-#result-screen {
-  z-index:200;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:22px;
-  padding:24px 16px;
-  background:radial-gradient(ellipse at 50% 20%,#0d2a10 0%,#05030f 65%);
-}
+/* .result-overlay는 위의 화면 시스템에서 정의됨 */
 
 #result-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;}
 .res-particle{position:absolute;border-radius:50%;}

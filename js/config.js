@@ -2,18 +2,27 @@
 
 let curScreen = 'title-screen';
 function showScreen(id) {
-  // 모든 스크린 숨기기
+  // 일반 메뉴 스크린들 모두 숨기기
   document.querySelectorAll('.screen').forEach(el => {
-    el.classList.add('hidden');
     el.style.display = 'none';
-    el.style.opacity = '';
   });
-  // 게임 스크린은 display:block, 나머지는 flex
-  const next = document.getElementById(id);
-  if(next) {
-    next.classList.remove('hidden');
-    next.style.display = id === 'game-screen' ? 'block' : 'flex';
-    next.style.opacity = '1';
+  // game-screen 숨기기
+  const gs = document.getElementById('game-screen');
+  if(gs) gs.style.display = 'none';
+  // result-screen 숨기기
+  const rs = document.getElementById('result-screen');
+  if(rs) rs.style.display = 'none';
+
+  if(id === 'game-screen'){
+    if(gs) gs.style.display = 'block';
+  } else if(id === 'result-screen'){
+    // result는 game 위에 오버레이로 표시
+    if(gs) gs.style.display = 'block'; // 배경으로 game 유지
+    if(rs){ rs.style.display = 'flex'; }
+  } else {
+    // 일반 메뉴 화면
+    const next = document.getElementById(id);
+    if(next) next.style.display = 'flex';
   }
   curScreen = id;
 }
