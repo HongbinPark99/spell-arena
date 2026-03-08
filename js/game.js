@@ -264,31 +264,75 @@ function showResult(){
   showScreen('result-screen');
   cancelAnimationFrame(rafId); rafId=null;
 
-  // 온라인이면 난이도변경/메인메뉴 버튼 숨김
-  const offlineBtns=document.getElementById('offline-btns');
-  if(offlineBtns) offlineBtns.style.display=netRole?'none':'';
+  // 온라인이면 장비/난이도 버튼 숨김
+  const online=!!netRole;
+  const btnLo=document.getElementById('btn-loadout'), btnDiff=document.getElementById('btn-diff');
+  if(btnLo)  btnLo .style.display=online?'none':'';
+  if(btnDiff)btnDiff.style.display=online?'none':'';
 
   let winner=null;
   if(scores[0]>scores[1])winner=1; else if(scores[1]>scores[0])winner=2;
   const myId=netRole==='join'?2:1;
-  const banEl=document.getElementById('res-banner'),winEl=document.getElementById('res-winner'),subEl=document.getElementById('res-subtitle');
+
+  const verdictEl=document.getElementById('res-verdict');
+  const winEl    =document.getElementById('res-winner');
+  const subEl    =document.getElementById('res-subtitle');
+
+  // 결과에 따라 배경·색 변경
+  const rs=document.getElementById('result-screen');
+  rs.style.background='';
+
   if(winner===myId){
-    banEl.textContent='VICTORY'; banEl.style.color='#f5c842';
-    winEl.textContent='YOU WIN!'; winEl.style.color='#4af0ff'; winEl.style.textShadow='0 0 40px #4af0ff';
-    subEl.textContent='적 마법사를 완전히 제압했습니다';
+    rs.style.background='radial-gradient(ellipse at 50% 30%,#0a2a3a 0%,#05030f 70%)';
+    verdictEl.textContent='🏆 VICTORY'; verdictEl.style.color='#f5c842'; verdictEl.style.textShadow='0 0 60px #f5c842,0 0 120px #f5c84255';
+    winEl.textContent='YOU WIN!'; winEl.style.color='#4af0ff'; winEl.style.textShadow='0 0 50px #4af0ff';
+    winEl.style.animation='winPop .6s cubic-bezier(.2,1.4,.5,1) forwards';
+    subEl.textContent='상대 마법사를 완전히 제압했습니다!'; subEl.style.color='#a3f0cc';
+    spawnResultParticles('win');
   } else if(winner){
-    banEl.textContent='DEFEATED'; banEl.style.color='#ff4444';
-    winEl.textContent='DEFEATED...'; winEl.style.color='#ff6b35'; winEl.style.textShadow='0 0 40px #ff4400';
-    subEl.textContent='더 강하게 돌아오세요';
+    rs.style.background='radial-gradient(ellipse at 50% 30%,#2a0a0a 0%,#05030f 70%)';
+    verdictEl.textContent='💀 DEFEATED'; verdictEl.style.color='#ff4444'; verdictEl.style.textShadow='0 0 60px #ff4444';
+    winEl.textContent='DEFEATED...'; winEl.style.color='#ff6b35'; winEl.style.textShadow='0 0 50px #ff4400';
+    winEl.style.animation='winPop .6s cubic-bezier(.2,1.4,.5,1) forwards';
+    subEl.textContent='더 강해져서 돌아오세요.'; subEl.style.color='#ffaa88';
+    spawnResultParticles('lose');
   } else {
-    banEl.textContent='DRAW'; banEl.style.color='#f5c842';
-    winEl.textContent='DRAW!'; winEl.style.color='#e8e0ff'; winEl.style.textShadow='0 0 30px #a855f7';
-    subEl.textContent='막상막하의 혈전이었습니다';
+    rs.style.background='radial-gradient(ellipse at 50% 30%,#1a1028 0%,#05030f 70%)';
+    verdictEl.textContent='⚖ DRAW'; verdictEl.style.color='#c084fc'; verdictEl.style.textShadow='0 0 60px #a855f7';
+    winEl.textContent='DRAW!'; winEl.style.color='#e8e0ff'; winEl.style.textShadow='0 0 40px #a855f7';
+    winEl.style.animation='winPop .6s cubic-bezier(.2,1.4,.5,1) forwards';
+    subEl.textContent='막상막하의 혈전이었습니다.'; subEl.style.color='#c084fc';
+    spawnResultParticles('draw');
   }
+
+  // 점수판
+  const s1el=document.getElementById('res-s1'), s2el=document.getElementById('res-s2');
+  const p1box=document.getElementById('res-p1-score'), p2box=document.getElementById('res-p2-score');
+  s1el.textContent=scores[0]; s2el.textContent=scores[1];
+  p1box.style.boxShadow=winner===1?'0 0 30px rgba(74,240,255,.5)':'';
+  p2box.style.boxShadow=winner===2?'0 0 30px rgba(255,107,53,.5)':'';
+  p1box.style.borderColor=winner===1?'#4af0ff':'';
+  p2box.style.borderColor=winner===2?'#ff6b35':'';
+
   document.getElementById('rs-kills').textContent=totalStats.kills;
   document.getElementById('rs-spells').textContent=totalStats.spells;
   document.getElementById('rs-summons').textContent=totalStats.summons;
   document.getElementById('rs-score').textContent=scores[0]+'-'+scores[1];
+}
+
+function spawnResultParticles(type){
+  const cont=document.getElementById('result-particles');
+  if(!cont)return;
+  cont.innerHTML='';
+  const colors={win:['#f5c842','#4af0ff','#44ff88','#ffffff'],lose:['#ff4444','#ff6b35','#ff2200','#aa0000'],draw:['#a855f7','#c084fc','#e8e0ff','#7c3aed']};
+  const cols=colors[type];
+  for(let i=0;i<28;i++){
+    const p=document.createElement('div');
+    p.className='res-particle';
+    const col=cols[i%cols.length];
+    p.style.cssText=`left:${Math.random()*100}%;background:${col};box-shadow:0 0 6px ${col};width:${2+Math.random()*4}px;height:${2+Math.random()*4}px;animation-duration:${2+Math.random()*4}s;animation-delay:${Math.random()*2}s;animation-name:${type==='win'?'resPFloat':'resPDrop'}`;
+    cont.appendChild(p);
+  }
 }
 
 function rematch(){

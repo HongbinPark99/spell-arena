@@ -36,15 +36,9 @@ class Player {
     this.x=Math.max(arena.x+pad,Math.min(arena.x+arena.w-pad,this.x));
     this.y=Math.max(arena.y+pad,Math.min(arena.y+arena.h-pad,this.y));
 
-    // Update facing and shoot direction from movement
-    const mv=Math.abs(this.vx)>0.05||Math.abs(this.vy)>0.05;
-    if(mv){
-      this.facing=this.vx>=0?1:-1;
-      this.sdx=this.vx; this.sdy=this.vy; // remember last movement dir for shooting
-    } else if(opponent){
-      this.facing=opponent.x>this.x?1:-1;
-      // When standing still keep last sdx/sdy so player can move+shoot directionally
-    }
+    // facing 항상 상대 진영 방향으로 고정 (이동 방향 무관)
+    // P1=오른쪽(+1), P2=왼쪽(-1) — 절대 바뀌지 않음
+    this.facing = this.id===1 ? 1 : -1;
 
     // Territory check
     const midX=arena.x+arena.w/2;
@@ -491,10 +485,13 @@ class Creature {
     ctx.shadowBlur=fl?18:12; ctx.shadowColor=fl?'#fff':this.glow;
 
     switch(this.def.name){
-      case'Drake': this._drawDrake(ctx,R,fl); break;
+      case'Drake':   this._drawDrake(ctx,R,fl);   break;
       case'Specter': this._drawSpecter(ctx,R,fl); break;
-      case'Golem': this._drawGolem(ctx,R,fl); break;
-      case'Wisp': this._drawWisp(ctx,R,fl); break;
+      case'Golem':   this._drawGolem(ctx,R,fl);   break;
+      case'Wisp':    this._drawWisp(ctx,R,fl);    break;
+      case'Phoenix': this._drawPhoenix(ctx,R,fl); break;
+      case'Goliath': this._drawGoliath(ctx,R,fl); break;
+      default:       this._drawWisp(ctx,R,fl);
     }
     ctx.restore();
 
@@ -713,6 +710,216 @@ class Creature {
       i===0?ctx.moveTo(Math.cos(a)*ir,Math.sin(a)*ir):ctx.lineTo(Math.cos(a)*ir,Math.sin(a)*ir);
     }
     ctx.closePath(); ctx.stroke();
+  }
+
+  // ── PHOENIX 🦅 — 불꽃 봉황 ───────────────
+  _drawPhoenix(ctx,R,fl){
+    const c=fl?'#fff':this.color, gold=fl?'#fff':'#ffcc00', dark=fl?'#fff':'#4a1500';
+    const t=Date.now()*.005;
+
+    // 살아있는 불꽃 오라
+    if(!fl){
+      for(let i=0;i<8;i++){
+        const fa=t*1.8+i*Math.PI*.25;
+        const fr=R*(0.9+Math.sin(t*2.1+i)*.28);
+        const fg=ctx.createRadialGradient(Math.cos(fa)*fr*.4,Math.sin(fa)*fr*.4,0,Math.cos(fa)*fr*.4,Math.sin(fa)*fr*.4,fr*.55);
+        fg.addColorStop(0,'rgba(255,180,0,.7)'); fg.addColorStop(.5,'rgba(255,80,0,.35)'); fg.addColorStop(1,'transparent');
+        ctx.beginPath(); ctx.arc(Math.cos(fa)*fr*.4,Math.sin(fa)*fr*.4,fr*.55,0,Math.PI*2);
+        ctx.fillStyle=fg; ctx.fill();
+      }
+    }
+
+    // 꼬리 깃털 (아래로 길게)
+    if(!fl){
+      const tailCols=['#ff6600','#ff8800','#ffaa00','#ff4400'];
+      for(let i=0;i<4;i++){
+        const ta=-0.3+i*0.2, len=R*(1.8+Math.sin(t+i)*.3);
+        ctx.save(); ctx.rotate(ta);
+        const tg=ctx.createLinearGradient(0,R*.4,0,R*.4+len);
+        tg.addColorStop(0,tailCols[i]+'cc'); tg.addColorStop(1,tailCols[i]+'00');
+        ctx.beginPath(); ctx.moveTo(-R*.06+i*R*.04,R*.38);
+        ctx.bezierCurveTo(-R*.2+i*R*.12,R*(1.0+i*.15),R*.1+i*.05,R*(1.4+i*.12),0,R*.4+len);
+        ctx.strokeStyle=tg; ctx.lineWidth=3.5-i*.5; ctx.lineCap='round'; ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // 날개 (양쪽)
+    for(let side of[-1,1]){
+      ctx.save(); ctx.scale(side,1);
+      // 날개 상단 (크고 불꽃)
+      ctx.beginPath();
+      ctx.moveTo(0,-R*.1);
+      ctx.bezierCurveTo(R*.6,-R*.8, R*1.6,-R*.5, R*1.5,R*.15);
+      ctx.bezierCurveTo(R*1.1,R*.4, R*.5,R*.3, 0,R*.2);
+      ctx.fillStyle=fl?'#fff':dark+'dd'; ctx.fill();
+      ctx.strokeStyle=c+'99'; ctx.lineWidth=1; ctx.stroke();
+      // 날개 깃털 끝
+      if(!fl){
+        for(let f=0;f<4;f++){
+          const fx=R*(0.8+f*.2), fy=R*(-0.6+f*.18);
+          const fg2=ctx.createRadialGradient(fx,fy,0,fx,fy,R*.22);
+          fg2.addColorStop(0,'#ffaa00'); fg2.addColorStop(1,'transparent');
+          ctx.beginPath(); ctx.arc(fx,fy,R*.22,0,Math.PI*2); ctx.fillStyle=fg2; ctx.fill();
+        }
+        // 날개 줄기선
+        ctx.strokeStyle='#ff8800aa'; ctx.lineWidth=1.2;
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(R*1.5,R*.1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(R*.3,-R*.3); ctx.lineTo(R*1.4,-R*.3); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 몸통
+    ctx.beginPath(); ctx.ellipse(0,0,R*.42,R*.62,0,0,Math.PI*2);
+    ctx.fillStyle=fl?'#fff':dark; ctx.fill(); ctx.strokeStyle=c; ctx.lineWidth=1.5; ctx.stroke();
+
+    // 가슴 불꽃 문양
+    if(!fl){
+      ctx.shadowBlur=20; ctx.shadowColor='#ff8800';
+      const bg=ctx.createRadialGradient(0,R*.05,0,0,R*.05,R*.3);
+      bg.addColorStop(0,'#ffee88'); bg.addColorStop(.5,'#ff6600'); bg.addColorStop(1,'transparent');
+      ctx.beginPath(); ctx.arc(0,R*.05,R*.3,0,Math.PI*2); ctx.fillStyle=bg; ctx.fill();
+      ctx.shadowBlur=0;
+    }
+
+    // 목+머리
+    ctx.beginPath(); ctx.rect(-R*.1,-R*.58,R*.2,R*.2); ctx.fillStyle=fl?'#fff':'#3a0e00'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0,-R*.78,R*.28,R*.3,0,0,Math.PI*2);
+    ctx.fillStyle=fl?'#fff':'#4a1200'; ctx.fill(); ctx.strokeStyle=c; ctx.lineWidth=1.2; ctx.stroke();
+
+    // 왕관 깃털
+    if(!fl){
+      ctx.shadowBlur=12; ctx.shadowColor=gold;
+      for(let i=0;i<5;i++){
+        const ca=-0.4+i*0.2;
+        ctx.strokeStyle=i===2?gold:'#ff8800';
+        ctx.lineWidth=2.2-i*.2;
+        ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(Math.sin(ca)*R*.18,-R*.95);
+        ctx.lineTo(Math.sin(ca)*R*.28,-R*(1.22+i*.04));
+        ctx.stroke();
+        if(i===2){
+          ctx.fillStyle=gold; ctx.beginPath(); ctx.arc(Math.sin(ca)*R*.28,-R*1.28,R*.07,0,Math.PI*2); ctx.fill();
+        }
+      }
+      ctx.shadowBlur=0;
+    }
+
+    // 눈 (빛나는 황금빛)
+    ctx.shadowBlur=fl?0:14; ctx.shadowColor=gold;
+    ctx.fillStyle=fl?'#fff':gold;
+    ctx.beginPath(); ctx.ellipse(R*.1,-R*.8,R*.1,R*.12,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(R*.12,-R*.81,R*.05,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(R*.14,-R*.83,R*.022,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+
+    // 부리
+    ctx.beginPath(); ctx.moveTo(R*.26,-R*.78); ctx.lineTo(R*.48,-R*.84); ctx.lineTo(R*.26,-R*.72);
+    ctx.fillStyle=fl?'#fff':gold; ctx.fill();
+  }
+
+  // ── GOLIATH 👾 — 거대 마석 골렘 ─────────
+  _drawGoliath(ctx,R,fl){
+    const c=fl?'#fff':this.color, dark=fl?'#fff':'#0a1a0e', stone=fl?'#fff':'#152b1a', bright=fl?'#fff':'#1e4a28';
+    const t=Date.now()*.002;
+
+    // 그림자 (크기 강조)
+    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0,R*1.15,R*1.1,R*.28,0,0,Math.PI*2); ctx.fill();
+
+    // 팔 (먼저 그려서 몸 뒤에)
+    for(let side of[-1,1]){
+      ctx.save(); ctx.scale(side,1);
+      // 어깨
+      ctx.beginPath(); ctx.ellipse(R*.88,-R*.1,R*.45,R*.38,.2,0,Math.PI*2);
+      ctx.fillStyle=dark; ctx.fill(); ctx.strokeStyle=c; ctx.lineWidth=2; ctx.stroke();
+      // 팔뚝
+      ctx.beginPath(); ctx.ellipse(R*1.38,R*.2,R*.36,R*.52,.15,0,Math.PI*2);
+      ctx.fillStyle=stone; ctx.fill(); ctx.strokeStyle=c; ctx.lineWidth=1.8; ctx.stroke();
+      // 거대 주먹
+      ctx.beginPath(); ctx.ellipse(R*1.62,R*.55,R*.44,R*.4,0,0,Math.PI*2);
+      ctx.fillStyle=dark; ctx.fill(); ctx.strokeStyle=c; ctx.lineWidth=2.2; ctx.stroke();
+      // 주먹 디테일
+      if(!fl){
+        ctx.strokeStyle=bright; ctx.lineWidth=1.5;
+        for(let k=0;k<3;k++){
+          ctx.beginPath(); ctx.moveTo(R*(1.46+k*.1),R*.42); ctx.lineTo(R*(1.46+k*.1),R*.65); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
+    // 몸통 (크고 육중)
+    ctx.beginPath(); ctx.roundRect(-R*.86,-R*.72,R*1.72,R*1.88,R*.18);
+    ctx.fillStyle=stone; ctx.fill(); ctx.strokeStyle=c; ctx.lineWidth=2.5; ctx.stroke();
+
+    // 장갑 판 (가로줄)
+    if(!fl){
+      ctx.strokeStyle=dark; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.moveTo(-R*.86,-R*.12); ctx.lineTo(R*.86,-R*.12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-R*.86,R*.48); ctx.lineTo(R*.86,R*.48); ctx.stroke();
+      // 세로줄
+      ctx.beginPath(); ctx.moveTo(0,-R*.72); ctx.lineTo(0,R*1.16); ctx.stroke();
+    }
+
+    // 가슴 에너지 크리스탈 (크게)
+    if(!fl){
+      ctx.shadowBlur=30; ctx.shadowColor=this.glow;
+      const cg=ctx.createRadialGradient(0,-R*.06,0,0,-R*.06,R*.55);
+      cg.addColorStop(0,'#ffffff'); cg.addColorStop(.25,this.glow); cg.addColorStop(.6,this.color); cg.addColorStop(1,this.glow+'00');
+      ctx.beginPath(); ctx.arc(0,-R*.06,R*.55,0,Math.PI*2); ctx.fillStyle=cg; ctx.fill();
+      // 맥동 링
+      const pulse=Math.sin(t*3)*.5+.5;
+      ctx.beginPath(); ctx.arc(0,-R*.06,R*(.55+pulse*.15),0,Math.PI*2);
+      ctx.strokeStyle=this.glow+(Math.floor(pulse*80+60)).toString(16); ctx.lineWidth=2; ctx.stroke();
+      ctx.shadowBlur=0;
+    }
+
+    // 장갑판 안쪽
+    ctx.beginPath(); ctx.roundRect(-R*.56,-R*.58,R*1.12,R*1.12,R*.1);
+    ctx.fillStyle=dark; ctx.fill(); ctx.strokeStyle=c+'77'; ctx.lineWidth=1.2; ctx.stroke();
+
+    // 균열 (배틀 대미지)
+    if(!fl){
+      ctx.strokeStyle=bright; ctx.lineWidth=1.8;
+      ctx.beginPath(); ctx.moveTo(-R*.35,R*.1); ctx.lineTo(R*.12,R*.55); ctx.lineTo(R*.35,R*.38); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(R*.42,-R*.3); ctx.lineTo(R*.14,-R*.56); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-R*.5,-R*.2); ctx.lineTo(-R*.22,-R*.45); ctx.stroke();
+    }
+
+    // 거대 머리
+    ctx.beginPath(); ctx.roundRect(-R*.72,-R*1.95,R*1.44,R*1.22,R*.18);
+    ctx.fillStyle=stone; ctx.fill(); ctx.strokeStyle=c; ctx.lineWidth=2.5; ctx.stroke();
+
+    // 이마 장식판
+    ctx.beginPath(); ctx.roundRect(-R*.6,-R*1.82,R*1.2,R*.55,R*.1);
+    ctx.fillStyle=dark; ctx.fill(); ctx.strokeStyle=c+'66'; ctx.lineWidth=1.2; ctx.stroke();
+
+    // 눈 (크고 강렬한 크리스탈)
+    ctx.shadowBlur=fl?0:24; ctx.shadowColor=this.glow;
+    ctx.fillStyle=fl?'#fff':this.color;
+    ctx.beginPath(); ctx.roundRect(-R*.5,-R*1.78,R*.4,R*.36,R*.07); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(R*.1,-R*1.78,R*.4,R*.36,R*.07); ctx.fill();
+    // 눈 광채
+    if(!fl){
+      ctx.fillStyle='#fff';
+      ctx.beginPath(); ctx.arc(-R*.38,-R*1.68,R*.07,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(R*.22,-R*1.68,R*.07,0,Math.PI*2); ctx.fill();
+    }
+    ctx.shadowBlur=0;
+
+    // 입 그릴
+    if(!fl){
+      ctx.strokeStyle=c+'88'; ctx.lineWidth=1.5;
+      for(let m=0;m<6;m++){
+        ctx.beginPath(); ctx.moveTo(R*(-0.38+m*.16),-R*1.2); ctx.lineTo(R*(-0.38+m*.16),-R*1.04); ctx.stroke();
+      }
+      // 리벳
+      ctx.fillStyle=bright;
+      [[-R*.64,-R*1.9],[R*.64,-R*1.9],[-R*.64,-R*.88],[R*.64,-R*.88],[-R*.64,-R*.08],[R*.64,-R*.08]].forEach(([rx,ry])=>{
+        ctx.beginPath(); ctx.arc(rx,ry,R*.075,0,Math.PI*2); ctx.fill();
+      });
+    }
   }
 }
 

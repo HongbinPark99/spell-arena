@@ -222,3 +222,48 @@ kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px
 .lo-card-emoji  { font-size:1.45rem; line-height:1.2; }
 .lo-card-name   { font-family:'Cinzel',serif; font-size:.58rem; color:var(--gold); margin:.18em 0; }
 .lo-card-info   { font-size:.5rem; color:var(--dim); }
+
+/* ─── 결과 화면 개선 ────────────────────── */
+#result-screen {
+  background: radial-gradient(ellipse at 50% 30%,#0a2a3a 0%,#05030f 70%);
+  gap: 18px; transition: background .6s;
+}
+#result-particles { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+.res-particle { position:absolute; border-radius:50%; bottom:-10px; }
+@keyframes resPFloat { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(-110vh) rotate(720deg);opacity:0} }
+@keyframes resPDrop  { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(110vh) rotate(-360deg);opacity:0} }
+
+.res-top { text-align:center; z-index:2; }
+.res-verdict {
+  font-family:'Cinzel Decorative',serif; font-size:clamp(1.8rem,5vw,3.2rem);
+  font-weight:700; letter-spacing:.22em; margin-bottom:10px;
+  animation: verdictIn .8s cubic-bezier(.2,1.2,.4,1) forwards;
+}
+@keyframes verdictIn { from{opacity:0;transform:scale(.4) translateY(-30px)} to{opacity:1;transform:scale(1) translateY(0)} }
+.res-winner {
+  font-family:'Cinzel',serif; font-size:clamp(2.4rem,7vw,4.5rem);
+  font-weight:900; letter-spacing:.15em; margin-bottom:8px;
+}
+@keyframes winPop { from{opacity:0;transform:scale(.3)} to{opacity:1;transform:scale(1)} }
+.res-subtitle { font-family:'Raleway',sans-serif; font-size:.9rem; color:var(--dim); letter-spacing:.1em; }
+
+.res-score-row {
+  display:flex; align-items:center; gap:24px; z-index:2;
+  flex-wrap:wrap; justify-content:center;
+}
+.res-player-score {
+  border:1px solid var(--border); background:var(--ui);
+  padding:16px 28px; text-align:center; min-width:130px;
+  clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);
+  transition: box-shadow .4s, border-color .4s;
+}
+.res-player-label { font-family:'Cinzel',serif; font-size:.65rem; letter-spacing:.2em; color:var(--dim); margin-bottom:8px; }
+.res-score-big { font-family:'Cinzel Decorative',serif; font-size:3.5rem; font-weight:700; color:var(--gold); line-height:1; }
+.res-vs-sep { font-family:'Cinzel',serif; font-size:1.4rem; color:var(--dim); }
+
+.result-actions {
+  display:flex; gap:10px; flex-wrap:wrap; justify-content:center; z-index:2;
+  margin-top:4px;
+}
+.btn-exit { border-color:rgba(255,80,80,.4); }
+.btn-exit:hover { border-color:#ff4444; box-shadow:0 0 20px rgba(255,68,68,.3); }
