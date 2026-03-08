@@ -97,12 +97,16 @@ function startOnlineGame(role){
   rafId=requestAnimationFrame(tick);
 }
 
-// HOST → JOIN: 전체 게임 상태 전송 (30fps)
+// HOST → JOIN: 정규화 좌표(0~1)로 전송 → 화면 크기 달라도 동일하게 표시
 function netSyncState(){
   if(netRole!=='host'||!netConn||!GS)return;
+  const a=GS.arena;
+  // 절대 픽셀 → arena 내 비율(0~1)로 변환
+  const nx=x=>(x-a.x)/a.w;
+  const ny=y=>(y-a.y)/a.h;
   const gs={
     players:GS.players.map(p=>({
-      id:p.id, x:Math.round(p.x), y:Math.round(p.y),
+      id:p.id, nx:nx(p.x), ny:ny(p.y),
       hp:Math.round(p.hp), mp:Math.round(p.mp),
       facing:p.facing, alive:p.alive,
       swordActive:p.swordActive, swordAngle:p.swordAngle,
@@ -114,32 +118,37 @@ function netSyncState(){
       selSpell:p.selSpell
     })),
     projectiles:GS.projectiles.map(pr=>({
-      x:pr.x,y:pr.y,vx:pr.vx,vy:pr.vy,ownerId:pr.ownerId,
+      nx:nx(pr.x), ny:ny(pr.y),
+      nvx:pr.vx/a.w, nvy:pr.vy/a.h,
+      ownerId:pr.ownerId,
       spell:{name:pr.spell.name,color:pr.spell.color,dmg:pr.spell.dmg,
              speed:pr.spell.speed,radius:pr.spell.radius,
              pierce:!!pr.spell.pierce,slow:!!pr.spell.slow}
     })),
     creatures:GS.creatures.map(c=>({
       cid:c.cid||('c_'+c.ownerId+'_'+c.def.name),
-      x:c.x,y:c.y,defName:c.def.name,ownerId:c.ownerId,
-      hp:Math.round(c.hp),maxHp:c.maxHp,facing:c.facing,
-      alive:c.alive,spawnScale:c.spawnScale
+      nx:nx(c.x), ny:ny(c.y), defName:c.def.name, ownerId:c.ownerId,
+      hp:Math.round(c.hp), maxHp:c.maxHp, facing:c.facing,
+      alive:c.alive, spawnScale:c.spawnScale
     })),
-    orbs:GS.orbs.map(o=>({x:o.x,y:o.y,alive:o.alive})),
-    timer:GS.timer,gameOver:GS.gameOver,started:GS.started,
-    shakeX:GS.shakeX,shakeY:GS.shakeY,
+    orbs:GS.orbs.map(o=>({nx:nx(o.x),ny:ny(o.y),alive:o.alive})),
+    timer:GS.timer, gameOver:GS.gameOver, started:GS.started,
+    shakeX:GS.shakeX, shakeY:GS.shakeY,
   };
   try{netConn.send({type:'state',gs});}catch(e){}
 }
 
-// JOIN: HOST 상태 전체 수신 → 그대로 반영
-// 순간이동 방지: P1/P2 위치 모두 HOST 권위로 직접 덮어씀 (lerp 없음)
-// 최초 1회만 위치 snap, 이후엔 매 프레임 HOST 위치로 렌더
+// JOIN: HOST 상태 수신 → 정규화 좌표를 로컬 arena 픽셀로 변환
 function applyNetState(ns){
   if(!GS||!ns)return;
+  const a=GS.arena;
+  // 비율(0~1) → 로컬 픽셀
+  const ax=nx=>a.x+nx*a.w;
+  const ay=ny=>a.y+ny*a.h;
+
   ns.players.forEach((np,i)=>{
     const p=GS.players[i]; if(!p)return;
-    p.x=np.x; p.y=np.y;
+    p.x=ax(np.nx); p.y=ay(np.ny);
     p.hp=np.hp; p.mp=np.mp;
     p.facing=np.facing; p.alive=np.alive;
     p.swordActive=np.swordActive; p.swordAngle=np.swordAngle;
@@ -148,19 +157,26 @@ function applyNetState(ns){
     p.invasionTimer=np.invasionTimer;
     p.spellCDs=np.spellCDs; p.summonCDs=np.summonCDs; p.selSpell=np.selSpell;
   });
-  GS.projectiles=ns.projectiles.map(np=>new Projectile(np.x,np.y,np.vx,np.vy,np.spell,np.ownerId));
+
+  GS.projectiles=ns.projectiles.map(np=>new Projectile(
+    ax(np.nx), ay(np.ny),
+    np.nvx*a.w, np.nvy*a.h,
+    np.spell, np.ownerId
+  ));
+
   const newCache={};
   GS.creatures=ns.creatures.filter(nc=>nc.alive).map(nc=>{
     const def=SUMMONS.find(s=>s.name===nc.defName); if(!def)return null;
     const prev=joinCreatureCache[nc.cid];
-    const c=new Creature(nc.x,nc.y,def,nc.ownerId);
+    const c=new Creature(ax(nc.nx),ay(nc.ny),def,nc.ownerId);
     c.hp=nc.hp; c.maxHp=nc.maxHp; c.facing=nc.facing; c.alive=true;
     c.spawnScale=nc.spawnScale!==undefined?nc.spawnScale:(prev?prev.spawnScale:0.1);
     newCache[nc.cid]={spawnScale:c.spawnScale};
     return c;
   }).filter(Boolean);
   joinCreatureCache=newCache;
-  GS.orbs=ns.orbs.filter(o=>o.alive).map(o=>new ManaOrb(o.x,o.y));
+
+  GS.orbs=ns.orbs.filter(o=>o.alive).map(o=>new ManaOrb(ax(o.nx),ay(o.ny)));
   GS.timer=ns.timer; GS.gameOver=ns.gameOver;
   if(ns.shakeX){GS.shakeX=ns.shakeX; GS.shakeY=ns.shakeY;}
   if(ns.started&&!GS.started){GS.started=true; showOverlay('FIGHT!','#f5c842',1.2);}
