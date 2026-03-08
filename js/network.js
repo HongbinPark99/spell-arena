@@ -177,7 +177,7 @@ function applyNetState(ns){
 
   const newCache={};
   GS.creatures=ns.creatures.filter(nc=>nc.alive).map(nc=>{
-    const def=SUMMONS.find(s=>s.name===nc.defName); if(!def)return null;
+    const def=SUMMON_POOL.find(s=>s.name===nc.defName)||SUMMONS.find(s=>s.name===nc.defName); if(!def)return null;
     const prev=joinCreatureCache[nc.cid];
     const c=new Creature(ax(nc.nx),ay(nc.ny),def,nc.ownerId);
     c.hp=nc.hp; c.maxHp=nc.maxHp; c.facing=nc.facing; c.alive=true;
