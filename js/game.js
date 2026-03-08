@@ -33,6 +33,10 @@ function recalcArena(){
 function tick(ts){
   const dt=Math.min((ts-lastTime)/1000,.05); lastTime=ts;
   if(!paused&&GS&&!GS.gameOver) gameUpdate(dt);
+  else if(!paused&&GS&&GS.gameOver){
+    // gameOver 후에도 파티클 계속 업데이트 (죽음 이펙트 재생)
+    GS.particles.forEach(p=>p.update(dt)); GS.particles=GS.particles.filter(p=>p.alive);
+  }
   gameRender();
   rafId=requestAnimationFrame(tick);
 }
@@ -234,9 +238,11 @@ function handleDeath(dead,killer){
   spawnDeathFX(dead.x,dead.y,dead.color); shakeScreen(.5); playSFX('death',0.7);
   scores[killer.id-1]++;
   totalStats.kills++; totalStats.spells+=GS.players[0].spellsCast; totalStats.summons+=GS.players[0].summonsCast;
+  GS.gameOver=true;
+  // HOST면 즉시 JOIN에게 gameOver 상태 전송
+  if(netRole==='host') netSyncState();
   const myId=netRole==='join'?2:1;
   showOverlay(killer.id===myId?'YOU WIN!':'DEFEATED!',killer.id===myId?'#4af0ff':'#ff6b35',2.4);
-  GS.gameOver=true;
   setTimeout(showResult,2800);
 }
 
@@ -247,6 +253,7 @@ function endRound(){
   totalStats.spells+=p1.spellsCast; totalStats.summons+=p1.summonsCast;
   let winner=null;
   if(p1.hp>p2.hp)winner=p1; else if(p2.hp>p1.hp)winner=p2;
+  if(netRole==='host') netSyncState();
   const myId=netRole==='join'?2:1;
   if(winner){scores[winner.id-1]++; showOverlay(winner.id===myId?'TIME UP — WIN!':'TIME UP — LOSE!',winner.id===myId?'#4af0ff':'#ff6b35',2.4);}
   else showOverlay('TIME UP — DRAW!','#f5c842',2.4);

@@ -107,6 +107,7 @@ canvas{position:absolute;top:0;left:0;touch-action:none;}
 .action-slots{display:flex;gap:5px;}
 .aslot{width:52px;height:52px;background:var(--ui);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:1.3rem;position:relative;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);backdrop-filter:blur(8px);transition:all .2s;}
 .aslot .slot-key{position:absolute;top:2px;left:4px;font-size:.52rem;color:var(--dim);font-family:'Cinzel',serif;}
+.aslot .slot-cost{position:absolute;bottom:2px;right:4px;font-size:.5rem;color:#c084fc;font-family:'Cinzel',serif;font-weight:700;letter-spacing:.02em;}
 .aslot.spell-slot{border-color:rgba(74,240,255,.3);}
 .aslot.summon-slot{border-color:rgba(245,200,66,.3);}
 .aslot.sword-slot{border-color:rgba(255,255,255,.2);}

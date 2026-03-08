@@ -118,20 +118,20 @@ class Player {
     if(dist<75&&Math.random()<.35)this.startSword();
   }
 
-  // FIX #2: castSpell fires in sdx/sdy direction — NOT toward target
   castSpell(){
     const sp=SPELLS[this.selSpell];
     if(this.mp<sp.cost||this.spellCDs[this.selSpell]>0)return null;
     this.mp-=sp.cost; this.spellCDs[this.selSpell]=sp.cd; this.spellsCast++;
-    const len=Math.sqrt(this.sdx**2+this.sdy**2)||1;
-    const nx=this.sdx/len, ny=this.sdy/len;
+    // 항상 상대 진영 방향(facing)으로 발사
+    // facing: P1=+1(오른쪽), P2=-1(왼쪽)
+    const dir=this.facing; // +1 or -1
     if(sp.type==='nova'){
       return Array.from({length:sp.count},(_,i)=>{
         const a=(i/sp.count)*Math.PI*2;
         return new Projectile(this.x,this.y,Math.cos(a)*sp.speed,Math.sin(a)*sp.speed,sp,this.id);
       });
     }
-    return [new Projectile(this.x,this.y,nx*sp.speed,ny*sp.speed,sp,this.id)];
+    return [new Projectile(this.x,this.y,dir*sp.speed,0,sp,this.id)];
   }
 
   summonCreature(idx){
