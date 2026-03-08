@@ -158,6 +158,22 @@ function gameUpdate(dt){
   s.creatures.forEach(c=>c.update(dt,s.arena,s.players,s.creatures,s.projectiles));
   s.creatures=s.creatures.filter(c=>c.alive);
 
+  // ── invasion(선 침범) 사망 체크 ──
+  if(!s.gameOver){
+    const [p1c,p2c]=s.players;
+    if(!p1c.alive && !p2c.alive){
+      // 동시 사망 → endRound로 처리
+      s.gameOver=true;
+      if(netRole==='host') netSyncState();
+      showOverlay('DRAW!','#f5c842',2.4);
+      setTimeout(showResult,2800);
+    } else if(!p1c.alive){
+      handleDeath(p1c, p2c);
+    } else if(!p2c.alive){
+      handleDeath(p2c, p1c);
+    }
+  }
+
   // 마나 구슬
   s.orbSpawnTimer-=dt;
   if(s.orbSpawnTimer<=0){
@@ -281,14 +297,33 @@ function showResult(){
 
   let winner=null;
   if(scores[0]>scores[1])winner=1; else if(scores[1]>scores[0])winner=2;
+  // 온라인: 내 시점으로 승패. 로컬(netRole=null): 실제 승자 표시
   const myId=netRole==='join'?2:1;
+  const isOnline=!!netRole;
+
+  // 로컬 2인 플레이면 승자를 직접 표시 (my/enemy 구분 없이)
+  const iWon  = isOnline ? (winner===myId) : (winner===1);  // 로컬선 P1 기준
+  const theyWon = isOnline ? (winner && winner!==myId) : (winner===2);
+  const isDraw = !winner;
 
   const verdictEl=document.getElementById('res-verdict');
   const winEl    =document.getElementById('res-winner');
   const subEl    =document.getElementById('res-subtitle');
   const rs       =document.getElementById('result-screen');
 
-  if(winner===myId){
+  if(!isOnline && winner){
+    // 로컬 2인: 실제 승자 이름 표시
+    const wName = winner===1 ? 'PLAYER 1' : 'PLAYER 2';
+    const wColor = winner===1 ? '#4af0ff' : '#ff6b35';
+    rs.style.background='radial-gradient(ellipse at 50% 20%,#0d2a10 0%,#05030f 65%)';
+    verdictEl.textContent='🏆 VICTORY';
+    verdictEl.style.cssText=`color:#f5c842;text-shadow:0 0 60px #f5c842,0 0 120px #f5c84255;`;
+    winEl.textContent=wName+' WIN!';
+    winEl.style.cssText=`color:${wColor};text-shadow:0 0 50px ${wColor},0 0 100px ${wColor}55;`;
+    subEl.textContent='상대 마법사를 완전히 제압했습니다!';
+    subEl.style.color='#a3f0cc';
+    spawnResultParticles('win');
+  } else if(iWon){
     rs.style.background='radial-gradient(ellipse at 50% 20%,#0d2a10 0%,#05030f 65%)';
     verdictEl.textContent='🏆 VICTORY';
     verdictEl.style.cssText='color:#f5c842;text-shadow:0 0 60px #f5c842,0 0 120px #f5c84255;';
@@ -297,7 +332,7 @@ function showResult(){
     subEl.textContent='상대 마법사를 완전히 제압했습니다!';
     subEl.style.color='#a3f0cc';
     spawnResultParticles('win');
-  } else if(winner){
+  } else if(theyWon){
     rs.style.background='radial-gradient(ellipse at 50% 20%,#2a0808 0%,#05030f 65%)';
     verdictEl.textContent='💀 DEFEAT';
     verdictEl.style.cssText='color:#ff4444;text-shadow:0 0 60px #ff4444,0 0 120px #ff000055;';
@@ -356,14 +391,28 @@ function spawnResultParticles(type){
   }
 }
 
+let rematchReady = false; // 내가 rematch 눌렀는지
 function rematch(){
+  if(netRole){
+    // 온라인: 상대방에게 rematch 요청 전송, 대기 상태로 전환
+    rematchReady = true;
+    const btn = document.querySelector('.res-btn-primary');
+    if(btn){ btn.textContent='⏳ 상대방 대기 중...'; btn.disabled=true; btn.style.opacity='0.6'; }
+    if(netRole==='host'&&netConn){ try{netConn.send({type:'rematch'});}catch(e){} }
+    if(netRole==='join'&&netConn){ try{netConn.send({type:'rematch'});}catch(e){} }
+    return;
+  }
+  // 로컬: 즉시 재시작
+  _doRematch();
+}
+function _doRematch(){
+  rematchReady=false;
   totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
   applyLoadout(); rebuildActionBar();
   GS=createGS();
   if(netRole) GS.players[1].isAI=false;
   showScreen('game-screen'); resetGameHUD();
   paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);
-  if(netRole==='host'&&netConn){ try{netConn.send({type:'rematch'});}catch(e){} }
 }
 function startGame(diff){
   difficulty=diff; scores=[0,0]; roundNum=1; totalStats={kills:0,spells:0,summons:0};

@@ -82,16 +82,17 @@ function handleNetData(data){
   if(data.type==='state'  &&netRole==='join') applyNetState(data.gs);
   if(data.type==='action' &&netRole==='host') applyRemoteAction(data);
   if(data.type==='sound') playSFX(data.sfx,data.vol||0.5);
-  // HOST가 rematch 시작 → JOIN도 새 게임 시작
-  if(data.type==='rematch'&&netRole==='join'){
-    totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
-    joinCreatureCache={};
-    GS=createGS();
-    GS.players[1].isAI=false;
-    showScreen('game-screen'); resetGameHUD();
-    paused=false; lastTime=performance.now();
-    if(rafId) cancelAnimationFrame(rafId);
-    rafId=requestAnimationFrame(tick);
+  // 상대방이 rematch 요청 → 내가 이미 눌렀으면 즉시 시작, 아니면 버튼에 알림
+  if(data.type==='rematch'){
+    if(rematchReady){
+      // 양쪽 다 준비됨 → 즉시 게임 시작
+      joinCreatureCache={};
+      _doRematch();
+    } else {
+      // 상대방이 먼저 눌렀음 → 버튼에 표시
+      const btn = document.querySelector('.res-btn-primary');
+      if(btn){ btn.textContent='▶ 상대방이 준비됨! 클릭하여 시작'; btn.disabled=false; btn.style.opacity='1'; btn.style.borderColor='#44ff88'; }
+    }
   }
 }
 

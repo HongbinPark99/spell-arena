@@ -48,7 +48,8 @@ class Player {
       const del=DIFF[difficulty].invasionDelay;
       if(this.invasionTimer>=del){
         this.hp=Math.max(0,this.hp-DIFF[difficulty].invasionDmg*dt);
-        if(this.hp<=0)this.alive=false;
+        // alive=false만 — game.js 루프에서 handleDeath 호출
+        if(this.hp<=0){ this.hp=0; this.alive=false; }
       }
     } else { this.invasionTimer=0; }
 
