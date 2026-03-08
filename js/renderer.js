@@ -1,28 +1,16 @@
 // ════════════════════════════════════════
 //  renderer.js — 캔버스 렌더링
 //
-//  거울 모드 구현 방식:
-//  - 화면 전체 미러링(scale -1) 방식 X
-//  - 렌더링 시 x좌표만 변환: mirrorX(x)
-//    → arena 기준으로 좌우 반전된 위치에 그림
-//  - 게임 로직/좌표는 HOST 기준 그대로 유지
-//  - JOIN 시점에서만 시각적으로 반전
+//  거울 모드:
+//  JOIN은 x좌표만 아레나 기준 반전해서 렌더링
+//  게임 로직/좌표는 HOST 기준 그대로 유지
 // ════════════════════════════════════════
 
-// JOIN 시점에서 x좌표를 아레나 기준으로 미러링
-function mirrorX(x, arena){
-  return arena.x + arena.w - (x - arena.x);
-}
-
-// 현재 렌더링이 JOIN 시점이면 x를 변환
-function mx(x){
-  if(netRole !== 'join' || !GS) return x;
-  return mirrorX(x, GS.arena);
-}
-
-// facing도 반전 (JOIN 시점)
-function mf(facing){
-  return netRole === 'join' ? -facing : facing;
+function _mx(x){
+  // JOIN 시점에서 x를 아레나 기준으로 미러링
+  if(netRole!=='join'||!GS) return x;
+  const a=GS.arena;
+  return a.x + a.w - (x - a.x);
 }
 
 function gameRender(){
@@ -35,11 +23,11 @@ function gameRender(){
   ctx.fillStyle='#05030f'; ctx.fillRect(0,0,W,H);
 
   drawArena(s.arena, s.players);
-  s.orbs.forEach(o => o.drawMirror(ctx, mx(o.x), o.y));
-  s.particles.forEach(p => p.drawMirror(ctx, mx(p.x), p.y));
-  s.creatures.forEach(c => c.drawMirror(ctx, mx(c.x), c.y, mf(c.facing)));
-  s.players.forEach(p => p.drawMirror(ctx, mx(p.x), p.y, mf(p.facing), p.swordAngle !== undefined ? (netRole==='join' ? Math.PI - p.swordAngle : p.swordAngle) : 0));
-  s.projectiles.forEach(pr => pr.drawMirror(ctx, mx(pr.x), pr.y));
+  s.orbs.forEach(o => _drawOrbMirror(o));
+  s.particles.forEach(p => _drawParticleMirror(p));
+  s.creatures.forEach(c => _drawCreatureMirror(c));
+  s.players.forEach(p => _drawPlayerMirror(p));
+  s.projectiles.forEach(pr => _drawProjectileMirror(pr));
 
   if(!s.started){
     const t=Math.ceil(s.startTimer);
@@ -50,40 +38,92 @@ function gameRender(){
     ctx.fillText(t>0?t:'GO!', W/2, H/2);
     ctx.restore();
   }
-
   ctx.restore();
 }
 
+// ── 각 오브젝트의 미러 draw 헬퍼 ─────────
+// 핵심: this.x/y/facing을 미러값으로 임시 교체 → draw() 호출 → 복원
+// trail은 별도로 미러링된 복사본 생성
+
+function _drawPlayerMirror(p){
+  const ox=p.x, of=p.facing;
+  const rx=_mx(p.x);
+  const rf=netRole==='join'?-p.facing:p.facing;
+
+  // trail: 미러된 복사본으로 교체
+  const origTrail=p.trail;
+  p.trail=origTrail.map(t=>({t:t.t, x:_mx(t.x), y:t.y}));
+
+  p.x=rx; p.facing=rf;
+  p.draw(ctx);
+  p.x=ox; p.facing=of;
+  p.trail=origTrail;
+}
+
+function _drawCreatureMirror(c){
+  const ox=c.x, of=c.facing;
+  const rx=_mx(c.x);
+  const rf=netRole==='join'?-c.facing:c.facing;
+
+  const origTrail=c.trail;
+  c.trail=origTrail.map(t=>({t:t.t, x:_mx(t.x), y:t.y}));
+
+  c.x=rx; c.facing=rf;
+  c.draw(ctx);
+  c.x=ox; c.facing=of;
+  c.trail=origTrail;
+}
+
+function _drawProjectileMirror(pr){
+  const ox=pr.x;
+  const origTrail=pr.trail;
+  pr.trail=(origTrail||[]).map(t=>({x:_mx(t.x), y:t.y}));
+  pr.x=_mx(pr.x);
+  pr.draw(ctx);
+  pr.x=ox;
+  pr.trail=origTrail;
+}
+
+function _drawOrbMirror(o){
+  const ox=o.x;
+  o.x=_mx(o.x);
+  o.draw(ctx);
+  o.x=ox;
+}
+
+function _drawParticleMirror(p){
+  const ox=p.x;
+  p.x=_mx(p.x);
+  p.draw(ctx);
+  p.x=ox;
+}
+
 function drawArena(a, players){
-  const isJoin = netRole === 'join';
-  // JOIN이면 왼/오른쪽이 시각적으로 반전됨
-  // midX는 동일, 배경색만 좌우 교체
-  const midX = a.x + a.w/2, cy = a.y + a.h/2;
+  const isJoin=netRole==='join';
+  const midX=a.x+a.w/2, cy=a.y+a.h/2;
 
-  // 배경
-  // HOST: 왼=P1(파랑), 오른=P2(불)
-  // JOIN: 왼=P2(불→내진영=파랑으로 표시), 오른=P1(적진영=불로 표시)
-  const myLeft  = isJoin ? {c0:'#0f0703',c1:'#060d14'} : {c0:'#03090f',c1:'#060d14'};
-  const myRight = isJoin ? {c0:'#03090f',c1:'#060d14'} : {c0:'#0f0703',c1:'#130500'};
-
+  // 배경: JOIN이면 좌우 색상 교체 (내 진영이 항상 왼쪽에 보이도록)
+  const L=isJoin?['#0f0703','#130500']:['#03090f','#060d14'];
+  const R=isJoin?['#03090f','#060d14']:['#0f0703','#130500'];
   const lg=ctx.createLinearGradient(a.x,a.y,midX,a.y);
-  lg.addColorStop(0,myLeft.c0); lg.addColorStop(1,myLeft.c1);
+  lg.addColorStop(0,L[0]); lg.addColorStop(1,L[1]);
   ctx.fillStyle=lg; ctx.fillRect(a.x,a.y,a.w/2,a.h);
-
   const rg=ctx.createLinearGradient(midX,a.y,a.x+a.w,a.y);
-  rg.addColorStop(0,myRight.c0); rg.addColorStop(1,myRight.c1);
+  rg.addColorStop(0,R[0]); rg.addColorStop(1,R[1]);
   ctx.fillStyle=rg; ctx.fillRect(midX,a.y,a.w/2,a.h);
 
-  // 침범 틴트 — JOIN이면 좌우 교체
-  const [p1,p2] = players;
-  const myP  = isJoin ? p2 : p1; // 화면 왼쪽 플레이어
-  const oppP = isJoin ? p1 : p2; // 화면 오른쪽 플레이어
-  if(myP.alive && myP.inEnemyTerritory){
-    const urg=Math.min(1,myP.invasionTimer/DIFF[difficulty].invasionDelay);
+  // 침범 틴트 — 시각적으로 맞는 쪽에
+  const [p1,p2]=players;
+  // HOST: p1이 왼쪽, p2가 오른쪽
+  // JOIN: p2가 왼쪽(내가 왼쪽), p1이 오른쪽
+  const leftP =isJoin?p2:p1, rightP=isJoin?p1:p2;
+  // leftP가 적 진영(오른쪽)을 침범 중
+  if(leftP.alive&&leftP.inEnemyTerritory){
+    const urg=Math.min(1,leftP.invasionTimer/DIFF[difficulty].invasionDelay);
     ctx.fillStyle=`rgba(255,40,40,${urg*.13})`; ctx.fillRect(midX,a.y,a.w/2,a.h);
   }
-  if(oppP.alive && oppP.inEnemyTerritory){
-    const urg=Math.min(1,oppP.invasionTimer/DIFF[difficulty].invasionDelay);
+  if(rightP.alive&&rightP.inEnemyTerritory){
+    const urg=Math.min(1,rightP.invasionTimer/DIFF[difficulty].invasionDelay);
     ctx.fillStyle=`rgba(255,40,40,${urg*.13})`; ctx.fillRect(a.x,a.y,a.w/2,a.h);
   }
 
@@ -94,18 +134,15 @@ function drawArena(a, players){
   for(let y=a.y;y<=a.y+a.h;y+=gs){ctx.beginPath();ctx.moveTo(a.x,y);ctx.lineTo(a.x+a.w,y);ctx.stroke();}
   ctx.restore();
 
-  // 룬 — JOIN이면 룬 위치도 반전
-  const runeL = isJoin ? a.x+a.w*3/4 : a.x+a.w/4;
-  const runeR = isJoin ? a.x+a.w/4   : a.x+a.w*3/4;
-  drawRune(ctx, runeL, cy, 65, '#4af0ff', 0.09); // 내 진영 룬 (항상 왼쪽)
-  drawRune(ctx, runeR, cy, 65, '#ff6b35', 0.09); // 적 진영 룬 (항상 오른쪽)
+  // 룬 — JOIN이면 내 진영 룬이 왼쪽에 오도록
+  const myRuneX =isJoin?a.x+a.w*3/4:a.x+a.w/4;
+  const oppRuneX=isJoin?a.x+a.w/4:a.x+a.w*3/4;
+  drawRune(ctx,myRuneX, cy,65,'#4af0ff',0.09);
+  drawRune(ctx,oppRuneX,cy,65,'#ff6b35',0.09);
 
-  // 영역 라벨
   ctx.font="bold 11px 'Cinzel',serif"; ctx.textAlign='center'; ctx.textBaseline='top';
-  ctx.fillStyle='rgba(74,240,255,.15)';
-  ctx.fillText('MY TERRITORY', runeL, a.y+8);
-  ctx.fillStyle='rgba(255,107,53,.15)';
-  ctx.fillText(isJoin ? 'ENEMY TERRITORY' : (netRole ? 'ENEMY TERRITORY' : 'AI TERRITORY'), runeR, a.y+8);
+  ctx.fillStyle='rgba(74,240,255,.15)'; ctx.fillText('MY TERRITORY',   myRuneX, a.y+8);
+  ctx.fillStyle='rgba(255,107,53,.15)'; ctx.fillText(isJoin?'ENEMY TERRITORY':(netRole?'ENEMY TERRITORY':'AI TERRITORY'), oppRuneX, a.y+8);
 
   // 중앙 분리선
   ctx.save(); ctx.shadowBlur=22; ctx.shadowColor='#a855f766';
