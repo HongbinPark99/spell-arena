@@ -1,6 +1,5 @@
 // ui.js — 입력, HUD 빌드, 로드아웃 UI
 
-const keys={};
 let pickingSpellSlot=-1, pickingSummonSlot=-1;
 
 // ─── HUD 동적 빌드 ───────────────────────
@@ -60,7 +59,7 @@ document.addEventListener('keydown',e=>{
   keys[e.key]=true;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
   if(e.key==='Escape'){togglePause();return;}
-  if(!GS||!GS.started)return;
+  if(!GS)return;
 
   const spellMap={q:0,Q:0,w:1,W:1,e:2,E:2,r:3,R:3};
   const sumMap  ={a:0,A:0,s:1,S:1};

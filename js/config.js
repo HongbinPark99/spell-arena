@@ -9,15 +9,17 @@ function showScreen(id){
 function changeDiff(){if(rafId)cancelAnimationFrame(rafId);GS=null;showScreen('loadout-screen');}
 function goMenu(){if(rafId)cancelAnimationFrame(rafId);GS=null;netRole=null;showScreen('title-screen');}
 
-// 타이틀 스파크
-(()=>{
-  const cont=document.getElementById('sparks'),cols=['#a855f7','#4af0ff','#f5c842','#ff6b35'];
+// 타이틀 스파크 — DOM 로드 후 실행
+window.addEventListener('DOMContentLoaded',()=>{
+  const cont=document.getElementById('sparks');
+  if(!cont)return;
+  const cols=['#a855f7','#4af0ff','#f5c842','#ff6b35'];
   for(let i=0;i<35;i++){
     const s=document.createElement('div');s.className='spark';
     s.style.cssText=`left:${Math.random()*100}%;background:${cols[i%4]};box-shadow:0 0 4px ${cols[i%4]};animation-duration:${4+Math.random()*8}s;animation-delay:${-Math.random()*12}s;width:${1+Math.random()*3}px;height:${1+Math.random()*3}px`;
     cont.appendChild(s);
   }
-})();
+});
 
 let settings={timerDuration:90};
 function changeTimer(d){settings.timerDuration=Math.max(30,Math.min(300,settings.timerDuration+d));document.getElementById('timer-val').textContent=settings.timerDuration;}
@@ -65,6 +67,9 @@ const DIFF={
 };
 
 let difficulty='normal',roundNum=1,scores=[0,0],totalStats={kills:0,spells:0,summons:0};
+
+// keys는 여기서 선언 — game.js와 ui.js 모두 참조
+const keys={};
 
 const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');

@@ -49,8 +49,17 @@ function gameUpdate(dt){
     s.startTimer-=dt;
     if(s.startTimer<=0){s.started=true; showOverlay('FIGHT!','#f5c842',1.2);}
     s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
-    // JOIN은 HOST 상태만 기다림 (여기서 return)
     if(netRole==='join'){updateHUD(); return;}
+    // 카운트다운 중에도 이동은 허용
+    const [p1c,p2c]=s.players;
+    if(!p1c.isAI){
+      p1c.vx=(keys['ArrowRight']?1:0)-(keys['ArrowLeft']?1:0);
+      p1c.vy=(keys['ArrowDown']?1:0)-(keys['ArrowUp']?1:0);
+      if(p1c.jx||p1c.jy){p1c.vx=p1c.jx;p1c.vy=p1c.jy;}
+      const l=Math.sqrt(p1c.vx**2+p1c.vy**2);if(l>1){p1c.vx/=l;p1c.vy/=l;}
+    }
+    s.players.forEach(p=>p.update(dt,s.arena,p.id===1?p2c:p1c));
+    updateHUD();
     return;
   }
 
