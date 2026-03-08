@@ -139,7 +139,9 @@ class Player {
     if(!def||this.mp<def.cost||this.summonCDs[idx]>0)return null;
     this.mp-=def.cost; this.summonCDs[idx]=def.cd; this.summonsCast++;
     const angle=Math.random()*Math.PI*2, d=this.radius+def.radius+22;
-    return new Creature(this.x+Math.cos(angle)*d,this.y+Math.sin(angle)*d,def,this.id);
+    const _c=new Creature(this.x+Math.cos(angle)*d,this.y+Math.sin(angle)*d,def,this.id);
+    _c.cid="c_"+this.id+"_"+Date.now()+"_"+idx;
+    return _c;
   }
 
   startSword(){
