@@ -762,3 +762,69 @@ class Particle {
   update(dt){this.life-=dt;if(this.life<=0){this.alive=false;return;}this.x+=this.vx*dt*60;this.y+=this.vy*dt*60;this.vy+=.1;this.vx*=.97;}
   draw(ctx){const a=this.life/this.maxLife;ctx.beginPath();ctx.arc(this.x,this.y,this.sz*a,0,Math.PI*2);ctx.fillStyle=this.color+Math.floor(a*255).toString(16).padStart(2,'0');ctx.fill();}
 }
+
+// ══════════════════════════════════════════════
+//  drawMirror — 거울 좌표로 그리기 (JOIN 시점)
+//  renderer.js의 mx(), mf()가 변환한 값을 받아
+//  원래 draw()를 임시 좌표로 호출
+// ══════════════════════════════════════════════
+
+// Player
+Player.prototype.drawMirror = function(ctx, rx, ry, rf, rSwordAngle){
+  const ox=this.x, oy=this.y, of=this.facing, osa=this.swordAngle;
+  this.x=rx; this.y=ry; this.facing=rf;
+  if(rSwordAngle!==undefined) this.swordAngle=rSwordAngle;
+  // trail도 미러링
+  const origTrail=this.trail;
+  if(netRole==='join' && GS){
+    const a=GS.arena;
+    this.trail=this.trail.map(t=>({...t, x: a.x+a.w-(t.x-a.x)}));
+  }
+  this.draw(ctx);
+  this.x=ox; this.y=oy; this.facing=of; this.swordAngle=osa;
+  this.trail=origTrail;
+};
+
+// Creature
+Creature.prototype.drawMirror = function(ctx, rx, ry, rf){
+  const ox=this.x, oy=this.y, of=this.facing;
+  this.x=rx; this.y=ry; this.facing=rf;
+  const origTrail=this.trail;
+  if(netRole==='join' && GS){
+    const a=GS.arena;
+    this.trail=this.trail.map(t=>({...t, x: a.x+a.w-(t.x-a.x)}));
+  }
+  this.draw(ctx);
+  this.x=ox; this.y=oy; this.facing=of;
+  this.trail=origTrail;
+};
+
+// Projectile
+Projectile.prototype.drawMirror = function(ctx, rx, ry){
+  const ox=this.x, oy=this.y;
+  const origTrail=this.trail;
+  this.x=rx; this.y=ry;
+  if(netRole==='join' && GS){
+    const a=GS.arena;
+    this.trail=this.trail.map(t=>({...t, x: a.x+a.w-(t.x-a.x)}));
+  }
+  this.draw(ctx);
+  this.x=ox; this.y=oy;
+  this.trail=origTrail;
+};
+
+// ManaOrb
+ManaOrb.prototype.drawMirror = function(ctx, rx, ry){
+  const ox=this.x;
+  this.x=rx;
+  this.draw(ctx);
+  this.x=ox;
+};
+
+// Particle
+Particle.prototype.drawMirror = function(ctx, rx, ry){
+  const ox=this.x, oy=this.y;
+  this.x=rx; this.y=ry;
+  this.draw(ctx);
+  this.x=ox; this.y=oy;
+};
