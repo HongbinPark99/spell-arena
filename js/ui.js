@@ -55,9 +55,9 @@ function equipSummon(slot,id){playerLoadout.summons[slot]=id;applyLoadout();upda
 
 // ─── 키보드 입력 ─────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.repeat)return;
-  keys[e.key]=true;
+  keys[e.key]=true; // repeat 여부 관계없이 항상 세팅
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
+  if(e.repeat)return; // 스펠/소환 중복 실행만 방지
   if(e.key==='Escape'){togglePause();return;}
   if(!GS)return;
 

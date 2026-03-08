@@ -64,6 +64,7 @@ body{background:var(--bg);color:var(--text);font-family:'Raleway',sans-serif;ove
 ══════════════════════════════════════ */
 #game-screen{z-index:1;display:block;}
 #game-screen.hidden{display:none;}
+#canvas{display:block;outline:none;}
 canvas{position:absolute;top:0;left:0;touch-action:none;}
 
 /* ══════════════════════════════════════

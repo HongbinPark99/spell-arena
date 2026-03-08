@@ -306,14 +306,19 @@ function rematch(){
   GS=createGS();
   if(netRole)GS.players[1].isAI=false;
   showScreen('game-screen');resetGameHUD();
-  paused=false;lastTime=performance.now();rafId=requestAnimationFrame(tick);
+  paused=false;lastTime=performance.now();
+  setTimeout(()=>{canvas.focus();},50);
+  rafId=requestAnimationFrame(tick);
   if(netRole==='host'&&netConn){try{netConn.send({type:'rematch'});}catch(e){}}
 }
 function startGame(diff){
   difficulty=diff;scores=[0,0];roundNum=1;totalStats={kills:0,spells:0,summons:0};
   applyLoadout();buildActionBar();
   GS=createGS();showScreen('game-screen');resetGameHUD();
-  paused=false;lastTime=performance.now();rafId=requestAnimationFrame(tick);
+  paused=false;lastTime=performance.now();
+  // 키보드 이벤트가 확실히 받아지도록 포커스
+  setTimeout(()=>{canvas.focus();},50);
+  rafId=requestAnimationFrame(tick);
 }
 function resetGameHUD(){
   document.getElementById('timer-disp').textContent=settings.timerDuration;
