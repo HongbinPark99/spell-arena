@@ -211,14 +211,14 @@ function updateHUD(){
   document.getElementById('score-p1').textContent=scores[isJoin?1:0];
   document.getElementById('score-p2').textContent=scores[isJoin?0:1];
   SPELLS.forEach((_,i)=>{
-    const sl=document.getElementById('sl-'+i); if(!sl)return;
+    const sl=document.getElementById('sl-'+i);if(!sl)return;
     sl.classList.toggle('active',me.selSpell===i);
     let cd=sl.querySelector('.cd-overlay');
     if(me.spellCDs[i]>0){if(!cd){cd=document.createElement('div');cd.className='cd-overlay';sl.appendChild(cd);}cd.textContent=(me.spellCDs[i]/1000).toFixed(1);}
     else if(cd)cd.remove();
   });
   SUMMONS.forEach((_,i)=>{
-    const sl=document.getElementById('sl-s'+i); if(!sl)return;
+    const sl=document.getElementById('sl-s'+i);if(!sl)return;
     let cd=sl.querySelector('.cd-overlay');
     if(me.summonCDs[i]>0){if(!cd){cd=document.createElement('div');cd.className='cd-overlay';sl.appendChild(cd);}cd.textContent=(me.summonCDs[i]/1000).toFixed(1);}
     else if(cd)cd.remove();
@@ -292,18 +292,19 @@ function showResult(){
 }
 
 function rematch(){
-  totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
+  totalStats={kills:0,spells:0,summons:0};scores=[0,0];roundNum=1;
+  applyLoadout();buildActionBar();
   GS=createGS();
-  if(netRole) GS.players[1].isAI=false;
-  showScreen('game-screen'); resetGameHUD();
-  paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);
-  // 온라인: HOST가 rematch 신호 전송
-  if(netRole==='host'&&netConn){ try{netConn.send({type:'rematch'});}catch(e){} }
+  if(netRole)GS.players[1].isAI=false;
+  showScreen('game-screen');resetGameHUD();
+  paused=false;lastTime=performance.now();rafId=requestAnimationFrame(tick);
+  if(netRole==='host'&&netConn){try{netConn.send({type:'rematch'});}catch(e){}}
 }
 function startGame(diff){
-  difficulty=diff; scores=[0,0]; roundNum=1; totalStats={kills:0,spells:0,summons:0};
-  GS=createGS(); showScreen('game-screen'); resetGameHUD();
-  paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);
+  difficulty=diff;scores=[0,0];roundNum=1;totalStats={kills:0,spells:0,summons:0};
+  applyLoadout();buildActionBar();
+  GS=createGS();showScreen('game-screen');resetGameHUD();
+  paused=false;lastTime=performance.now();rafId=requestAnimationFrame(tick);
 }
 function resetGameHUD(){
   document.getElementById('timer-disp').textContent=settings.timerDuration;
