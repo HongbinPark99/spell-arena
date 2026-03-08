@@ -15,8 +15,8 @@ function createGS(){
   const arena=calcArena(), cx=arena.x+arena.w/2, cy=arena.y+arena.h/2;
   return {
     arena, players:[
-      new Player(1,cx-arena.w/4,cy,'#4af0ff','#00c8ff',false),
-      new Player(2,cx+arena.w/4,cy,'#ff6b35','#ff4400',true),
+      new Player(1, cx-arena.w/4, cy, '#4af0ff','#00c8ff', false),
+      new Player(2, cx+arena.w/4, cy, '#ff6b35','#ff4400', true),
     ],
     projectiles:[],creatures:[],orbs:[],particles:[],
     timer:settings.timerDuration,timerAcc:0,orbSpawnTimer:3.5,
@@ -45,6 +45,13 @@ function gameUpdate(dt){
   if(!s.started){
     s.startTimer-=dt;
     if(s.startTimer<=0){ s.started=true; showOverlay('FIGHT!','#f5c842',1.2); }
+    // JOIN: 시작 전에도 P2 입력 읽기 (키 등록)
+    if(netRole==='join') readAndSendJoinInput();
+    // JOIN: 파티클/shake 업데이트
+    if(netRole==='join'){
+      s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
+      if(s.shakeT>0){ s.shakeT-=dt; const m=s.shakeT*14; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m; } else { s.shakeX=s.shakeY=0; }
+    }
     return;
   }
 
@@ -59,7 +66,27 @@ function gameUpdate(dt){
 
   const [p1,p2]=s.players;
 
-  // P1 로컬 입력 (항상)
+  if(netRole==='join'){
+    // ── JOIN 클라이언트 ──────────────────────
+    // 1. 입력 읽기 + HOST로 전송
+    const {vx,vy}=readAndSendJoinInput();
+    // 2. P2(나)를 로컬에서 직접 update (입력 즉각 반응)
+    p2.vx=vx; p2.vy=vy;
+    p2.update(dt, s.arena, p1);
+    // 3. 파티클/shake 업데이트
+    s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
+    if(s.shakeT>0){ s.shakeT-=dt; const m=s.shakeT*14; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m; } else { s.shakeX=s.shakeY=0; }
+    // 4. 투사체 로컬 이동 (부드러운 렌더링)
+    s.projectiles.forEach(pr=>pr.update(dt,s.arena));
+    s.projectiles=s.projectiles.filter(pr=>pr.alive);
+    // territory warning (내가 P2)
+    updateTerritoryWarning(p2);
+    updateHUD();
+    return;
+  }
+
+  // ── HOST / 싱글플레이 ────────────────────
+  // P1 로컬 입력
   if(!p1.isAI){
     p1.vx=(keys['ArrowRight']?1:0)-(keys['ArrowLeft']?1:0);
     p1.vy=(keys['ArrowDown']?1:0)-(keys['ArrowUp']?1:0);
@@ -67,34 +94,16 @@ function gameUpdate(dt){
     const l=Math.sqrt(p1.vx**2+p1.vy**2); if(l>1){p1.vx/=l;p1.vy/=l;}
   }
 
-  // 온라인 모드
-  if(netRole==='host'){
-    applyOnlineP2Input();
-  } else if(netRole==='join'){
-    // JOIN: 입력 전송 + 로컬 P2 이동 예측
-    sendJoinInput();
-    // JOIN은 HOST 상태 수신으로 렌더링 → update 일부만 실행
-    // (파티클·shake는 로컬 실행, 게임로직은 HOST 권위)
-    s.particles.forEach(p=>p.update(dt));
-    s.particles=s.particles.filter(p=>p.alive);
-    if(s.shakeT>0){ s.shakeT-=dt; const m=s.shakeT*14; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m; }
-    else { s.shakeX=s.shakeY=0; }
-    // territory warning for JOIN's perspective (자신 = p2)
-    updateTerritoryWarning(p2);
-    updateHUD();
-    return;
-  }
+  if(netRole==='host') applyOnlineP2Input();
 
   s.players.forEach(p=>p.update(dt,s.arena,p.id===1?p2:p1));
 
-  // Territory warning (P1 기준)
   updateTerritoryWarning(p1);
 
-  // 투사체 이동
+  // 투사체
   s.projectiles.forEach(pr=>pr.update(dt,s.arena));
   s.projectiles=s.projectiles.filter(pr=>pr.alive);
 
-  // 투사체 충돌
   s.projectiles.forEach(pr=>{
     s.players.forEach(p=>{
       if(!p.alive)return;
@@ -103,8 +112,7 @@ function gameUpdate(dt){
       if(Math.hypot(pr.x-p.x,pr.y-p.y)<p.radius+pr.radius){
         p.takeDamage(pr.spell.dmg);
         if(pr.spell.slow) p.slowTimer=2.2;
-        spawnHitFX(pr.x,pr.y,pr.spell.color); shakeScreen(.14);
-        playSFX('hit',0.35);
+        spawnHitFX(pr.x,pr.y,pr.spell.color); shakeScreen(.14); playSFX('hit',0.35);
         if(!p.alive) handleDeath(p, p.id===1?p2:p1);
         if(!pr.spell.pierce) pr.alive=false;
       }
@@ -114,8 +122,7 @@ function gameUpdate(dt){
       const fromOwner=typeof pr.ownerId==='number'?pr.ownerId===c.ownerId:pr.ownerId.startsWith(String(c.ownerId));
       if(fromOwner)return;
       if(Math.hypot(pr.x-c.x,pr.y-c.y)<c.radius+pr.radius){
-        c.takeDamage(pr.spell.dmg); spawnHitFX(pr.x,pr.y,pr.spell.color);
-        playSFX('hit',0.25);
+        c.takeDamage(pr.spell.dmg); spawnHitFX(pr.x,pr.y,pr.spell.color); playSFX('hit',0.25);
         if(!c.alive){ spawnDeathFX(c.x,c.y,c.color); showNotif(c.def.emoji+' '+c.def.name+' 처치!',c.color); playSFX('death',0.5); }
         if(!pr.spell.pierce) pr.alive=false;
       }
@@ -147,7 +154,6 @@ function gameUpdate(dt){
   s.creatures.forEach(c=>c.update(dt,s.arena,s.players,s.creatures,s.projectiles));
   s.creatures=s.creatures.filter(c=>c.alive);
 
-  // 마나 구슬 스폰
   s.orbSpawnTimer-=dt;
   if(s.orbSpawnTimer<=0){
     s.orbSpawnTimer=3.5+Math.random()*4;
@@ -166,13 +172,11 @@ function gameUpdate(dt){
   });
   s.orbs=s.orbs.filter(o=>o.alive);
 
-  s.particles.forEach(p=>p.update(dt));
-  s.particles=s.particles.filter(p=>p.alive);
+  s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
 
   if(s.shakeT>0){ s.shakeT-=dt; const m=s.shakeT*14; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m; }
   else { s.shakeX=s.shakeY=0; }
 
-  // HOST → JOIN 동기화
   if(netRole==='host'&&netConn){
     netSyncTimer+=dt;
     if(netSyncTimer>=1/NET_HZ){ netSyncTimer=0; netSyncState(); }
@@ -181,7 +185,6 @@ function gameUpdate(dt){
   updateHUD();
 }
 
-// territory warning — 어느 플레이어 기준인지 파라미터로
 function updateTerritoryWarning(myPlayer){
   const tw=document.getElementById('territory-warn');
   const wt=document.getElementById('warn-text');
@@ -199,10 +202,9 @@ function updateTerritoryWarning(myPlayer){
 // ─── HUD ─────────────────────────────────
 function updateHUD(){
   if(!GS)return;
-  // JOIN 시점: 자신=P2(idx1), 상대=P1(idx0) → HUD는 항상 '나'가 왼쪽
-  const isJoin = netRole==='join';
-  const me  = isJoin ? GS.players[1] : GS.players[0];
-  const opp = isJoin ? GS.players[0] : GS.players[1];
+  const isJoin=netRole==='join';
+  const me  =isJoin?GS.players[1]:GS.players[0];
+  const opp =isJoin?GS.players[0]:GS.players[1];
 
   document.getElementById('hp-p1').style.width=(me.hp/me.maxHp*100)+'%';
   document.getElementById('mp-p1').style.width=(me.mp/me.maxMp*100)+'%';
@@ -231,7 +233,8 @@ function handleDeath(dead,killer){
   spawnDeathFX(dead.x,dead.y,dead.color); shakeScreen(.5); playSFX('death',0.7);
   scores[killer.id-1]++;
   totalStats.kills++; totalStats.spells+=GS.players[0].spellsCast; totalStats.summons+=GS.players[0].summonsCast;
-  showOverlay(killer.id===1?'YOU WIN!':'DEFEATED!',killer.id===1?'#4af0ff':'#ff6b35',2.4);
+  const myId=netRole==='join'?2:1;
+  showOverlay(killer.id===myId?'YOU WIN!':'DEFEATED!',killer.id===myId?'#4af0ff':'#ff6b35',2.4);
   GS.gameOver=true;
   setTimeout(showResult,2800);
 }
@@ -243,7 +246,8 @@ function endRound(){
   totalStats.spells+=p1.spellsCast; totalStats.summons+=p1.summonsCast;
   let winner=null;
   if(p1.hp>p2.hp) winner=p1; else if(p2.hp>p1.hp) winner=p2;
-  if(winner){ scores[winner.id-1]++; showOverlay(winner.id===1?'TIME UP — WIN!':'TIME UP — LOSE!',winner.id===1?'#4af0ff':'#ff6b35',2.4); }
+  const myId=netRole==='join'?2:1;
+  if(winner){ scores[winner.id-1]++; showOverlay(winner.id===myId?'TIME UP — WIN!':'TIME UP — LOSE!',winner.id===myId?'#4af0ff':'#ff6b35',2.4); }
   else showOverlay('TIME UP — DRAW!','#f5c842',2.4);
   setTimeout(showResult,2800);
 }
@@ -254,13 +258,11 @@ function showResult(){
 
   let winner=null;
   if(scores[0]>scores[1]) winner=1; else if(scores[1]>scores[0]) winner=2;
+  const myId=netRole==='join'?2:1;
 
   const banEl=document.getElementById('res-banner');
   const winEl=document.getElementById('res-winner');
   const subEl=document.getElementById('res-subtitle');
-
-  // JOIN 시점에서는 P2가 '나'이므로 승패 판정 반전
-  const myId = netRole==='join' ? 2 : 1;
 
   if(winner===myId){
     banEl.textContent='VICTORY'; banEl.style.color='#f5c842';

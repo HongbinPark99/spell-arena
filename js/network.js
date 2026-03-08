@@ -1,15 +1,11 @@
 // ════════════════════════════════════════
-//  network.js — 온라인 멀티플레이어 (수정판)
+//  network.js — 온라인 멀티플레이어
 //
-//  수정 내용:
-//  1. reliable:true 로 변경 → 소환수/스펠 패킷 손실 없음
-//  2. creatures에 cid(고유ID) 부여 → spawnScale 캐시 유지
-//  3. JOIN 측에서 HOST 상태 완전 반영 (플레이어 위치 보간)
-//  4. sound 이벤트 네트워크 전파
-//
-//  조작키:
-//  HOST(P1): 방향키 이동 · Q W E R 스펠 · A S D F 소환 · Space 검
-//  JOIN(P2): I J K L 이동 · U O P [ 스펠 · 1 2 3 4 소환 · Enter 검
+//  핵심 수정 (v7→v8):
+//  JOIN의 P2가 로컬에서도 update()를 실행해
+//  입력 즉시 반응 + 순간이동 없음
+//  HOST 상태 수신 시 P2 위치를 완전 덮어씌움(snap)
+//  → lerp 보간 제거 (보간이 순간이동의 원인이었음)
 // ════════════════════════════════════════
 
 let peer        = null;
@@ -158,12 +154,12 @@ function startOnlineGame(role){
   rafId=requestAnimationFrame(tick);
 }
 
-// HOST -> JOIN: 풀 상태 스냅샷 전송 (30fps)
+// ── HOST → JOIN 상태 전송 ─────────────────
 function netSyncState(){
   if(netRole!=='host'||!netConn||!GS)return;
   const gs={
     players: GS.players.map(p=>({
-      id:p.id, x:Math.round(p.x), y:Math.round(p.y),
+      id:p.id, x:p.x, y:p.y,
       hp:Math.round(p.hp), mp:Math.round(p.mp),
       facing:p.facing, swordActive:p.swordActive, swordAngle:p.swordAngle,
       slowTimer:p.slowTimer, inEnemyTerritory:p.inEnemyTerritory,
@@ -173,37 +169,43 @@ function netSyncState(){
       selSpell:p.selSpell
     })),
     projectiles: GS.projectiles.map(pr=>({
-      x:Math.round(pr.x), y:Math.round(pr.y), vx:pr.vx, vy:pr.vy,
+      x:pr.x, y:pr.y, vx:pr.vx, vy:pr.vy,
       spell:{name:pr.spell.name,color:pr.spell.color,dmg:pr.spell.dmg,
              speed:pr.spell.speed,radius:pr.spell.radius,
              pierce:!!pr.spell.pierce,slow:!!pr.spell.slow},
       ownerId:pr.ownerId
     })),
     creatures: GS.creatures.map(c=>({
-      cid:c.cid||'c_'+c.ownerId,
-      x:Math.round(c.x), y:Math.round(c.y),
-      defName:c.def.name, ownerId:c.ownerId,
+      cid:c.cid||('c_'+c.ownerId+'_'+c.def.name),
+      x:c.x, y:c.y, defName:c.def.name, ownerId:c.ownerId,
       hp:Math.round(c.hp), maxHp:c.maxHp,
-      facing:c.facing, alive:c.alive,
-      spawnScale:c.spawnScale
+      facing:c.facing, alive:c.alive, spawnScale:c.spawnScale
     })),
-    orbs: GS.orbs.map(o=>({x:Math.round(o.x),y:Math.round(o.y),alive:o.alive})),
+    orbs: GS.orbs.map(o=>({x:o.x,y:o.y,alive:o.alive})),
     timer:GS.timer, gameOver:GS.gameOver, started:GS.started,
-    shakeX:Math.round(GS.shakeX), shakeY:Math.round(GS.shakeY),
+    shakeX:GS.shakeX, shakeY:GS.shakeY,
   };
   try{ netConn.send({type:'state',gs}); }catch(e){}
 }
 
-// JOIN: HOST 상태를 완전히 반영
+// ── JOIN: HOST 상태 수신 → 완전 덮어쓰기 ──
+// 보간(lerp) 완전 제거 → 순간이동 원인이었음
+// P1(상대방)만 HOST 권위로 덮어쓰고
+// P2(나)는 위치만 snap, 나머지는 HOST 권위
 function applyNetState(ns){
   if(!GS||!ns)return;
 
-  // 두 플레이어 모두 HOST 권위로 동기화
   ns.players.forEach((np,i)=>{
     const p=GS.players[i]; if(!p)return;
-    const lerp = (i===1) ? 0.55 : 0.75;
-    p.x+=(np.x-p.x)*lerp;
-    p.y+=(np.y-p.y)*lerp;
+    if(i===0){
+      // P1(상대방): HOST 좌표로 완전 snap
+      p.x=np.x; p.y=np.y;
+    } else {
+      // P2(나): 위치는 로컬 유지 (update()가 이미 실행됨), 나머지만 동기화
+      // 단, HOST와 오차가 크면 snap으로 보정
+      const dx=np.x-p.x, dy=np.y-p.y;
+      if(Math.sqrt(dx*dx+dy*dy)>80){ p.x=np.x; p.y=np.y; } // 80px 이상 차이나면 snap
+    }
     p.hp=np.hp; p.mp=np.mp; p.facing=np.facing;
     p.swordActive=np.swordActive; p.swordAngle=np.swordAngle;
     p.slowTimer=np.slowTimer; p.inEnemyTerritory=np.inEnemyTerritory;
@@ -216,27 +218,21 @@ function applyNetState(ns){
     new Projectile(np.x,np.y,np.vx,np.vy,np.spell,np.ownerId)
   );
 
-  // 소환수 - cid 기반으로 spawnScale 유지 (팝인 방지)
+  // 소환수 - cid 기반 spawnScale 유지
   const newCache={};
   GS.creatures=ns.creatures.filter(nc=>nc.alive).map(nc=>{
     const def=SUMMONS.find(s=>s.name===nc.defName);
     if(!def)return null;
     const prev=joinCreatureCache[nc.cid];
     const c=new Creature(nc.x,nc.y,def,nc.ownerId);
-    // 위치 보간
-    if(prev){ c.x=prev.x+(nc.x-prev.x)*0.65; c.y=prev.y+(nc.y-prev.y)*0.65; }
     c.hp=nc.hp; c.maxHp=nc.maxHp; c.facing=nc.facing; c.alive=true;
-    // HOST가 보낸 spawnScale 사용 (1에 가까울수록 완전히 보임)
-    c.spawnScale = nc.spawnScale !== undefined ? nc.spawnScale : (prev ? prev.spawnScale : 0.1);
-    newCache[nc.cid]={x:c.x,y:c.y,spawnScale:c.spawnScale};
+    c.spawnScale=nc.spawnScale!==undefined?nc.spawnScale:(prev?prev.spawnScale:0.1);
+    newCache[nc.cid]={spawnScale:c.spawnScale};
     return c;
   }).filter(Boolean);
   joinCreatureCache=newCache;
 
-  // 마나 구슬
   GS.orbs=ns.orbs.filter(o=>o.alive).map(o=>new ManaOrb(o.x,o.y));
-
-  // 게임 상태
   GS.timer=ns.timer; GS.gameOver=ns.gameOver;
   if(ns.shakeX){ GS.shakeX=ns.shakeX; GS.shakeY=ns.shakeY; }
   if(ns.started&&!GS.started){ GS.started=true; showOverlay('FIGHT!','#f5c842',1.2); }
@@ -248,7 +244,7 @@ function applyNetState(ns){
   }
 }
 
-// HOST: JOIN 즉각 액션 처리
+// ── HOST: JOIN 즉각 액션 처리 ────────────
 function applyRemoteAction(data){
   if(!GS)return;
   const p2=GS.players[1];
@@ -276,15 +272,20 @@ function applyRemoteAction(data){
   }
 }
 
-// JOIN 키입력
+// ── JOIN 키입력 ───────────────────────────
 const P2_MOVE  = {'i':'up','k':'down','j':'left','l':'right','I':'up','K':'down','J':'left','L':'right'};
 const P2_SPELL = {'u':0,'U':0,'o':1,'O':1,'p':2,'P':2,'[':3};
 const P2_SUMMON= {'1':0,'2':1,'3':2,'4':3};
 
 document.addEventListener('keydown', e=>{
-  if(!GS||!GS.started||netRole!=='join')return;
+  // started 체크 제거 → 카운트다운 중에도 키 등록
+  if(!GS||netRole!=='join')return;
   const p2=GS.players[1]; if(!p2||!p2.alive)return;
+
   if(P2_MOVE[e.key]!==undefined) keys['p2_'+P2_MOVE[e.key]]=true;
+
+  if(!GS.started)return; // 스펠/소환/검은 게임 시작 후만
+
   if(P2_SPELL[e.key]!==undefined){
     p2.selSpell=P2_SPELL[e.key];
     if(netConn){ try{ netConn.send({type:'action',action:'spell',idx:p2.selSpell,sdx:p2.sdx,sdy:p2.sdy}); }catch(ex){} }
@@ -302,6 +303,7 @@ document.addEventListener('keyup', e=>{
   if(P2_MOVE[e.key]!==undefined) keys['p2_'+P2_MOVE[e.key]]=false;
 });
 
+// ── HOST: P2 입력 반영 ───────────────────
 function applyOnlineP2Input(){
   if(netRole!=='host'||!GS)return;
   const p2=GS.players[1];
@@ -309,13 +311,26 @@ function applyOnlineP2Input(){
   if(remoteP2Input.sdx!==undefined){ p2.sdx=remoteP2Input.sdx; p2.sdy=remoteP2Input.sdy; }
 }
 
-function sendJoinInput(){
-  if(netRole!=='join'||!netConn||!GS)return;
+// ── JOIN: 입력 읽기 + HOST로 전송 ─────────
+// 반환값: {vx, vy} — game.js에서 p2.update()에 사용
+function readAndSendJoinInput(){
+  if(netRole!=='join'||!GS)return {vx:0,vy:0};
   const p2=GS.players[1];
+
+  // IJKL 키 읽기
   let vx=(keys['p2_right']?1:0)-(keys['p2_left']?1:0);
   let vy=(keys['p2_down']?1:0)-(keys['p2_up']?1:0);
+  // 조이스틱 우선
+  if(p2.jx||p2.jy){ vx=p2.jx; vy=p2.jy; }
   const l=Math.sqrt(vx*vx+vy*vy); if(l>1){vx/=l;vy/=l;}
-  p2.vx=vx; p2.vy=vy;
-  if(Math.abs(vx)>.05||Math.abs(vy)>.05){ p2.sdx=vx; p2.sdy=vy; p2.facing=vx>=0?1:-1; }
-  try{ netConn.send({type:'input',vx,vy,sdx:p2.sdx,sdy:p2.sdy}); }catch(e){}
+
+  // 이동 방향 업데이트 (sdx/sdy: 스펠 발사 방향)
+  if(Math.abs(vx)>.05||Math.abs(vy)>.05){
+    p2.sdx=vx; p2.sdy=vy; p2.facing=vx>=0?1:-1;
+  }
+
+  // HOST로 전송
+  if(netConn){ try{ netConn.send({type:'input',vx,vy,sdx:p2.sdx,sdy:p2.sdy}); }catch(e){} }
+
+  return {vx,vy};
 }
