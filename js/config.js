@@ -50,12 +50,12 @@ const SPELL_POOL = [
 
 // ═══ 소환수 풀 (6종) ═══
 const SUMMON_POOL = [
-  { id:'drake',   name:'Drake',   emoji:'🐉', color:'#ff5500', glow:'#ff8800', cost:55, cd:6000, hp:120, speed:170, radius:15, dmg:18, atkRange:30, atkCd:900,  sightRange:320, shootRange:190, shootCd:2200, shootDmg:14, shootSpd:5.5, shootR:8 },
-  { id:'specter', name:'Specter', emoji:'👻', color:'#b090ff', glow:'#8040ff', cost:40, cd:4500, hp:60,  speed:260, radius:12, dmg:13, atkRange:24, atkCd:650,  sightRange:360, shootRange:0,   shootCd:99999,shootDmg:0,  shootSpd:0,  shootR:0, phase:true },
-  { id:'golem',   name:'Golem',   emoji:'🛡️', color:'#88aaff', glow:'#4466ff', cost:70, cd:8000, hp:200, speed:110, radius:20, dmg:25, atkRange:38, atkCd:1400, sightRange:250, shootRange:0,   shootCd:99999,shootDmg:0,  shootSpd:0,  shootR:0 },
-  { id:'wisp',    name:'Wisp',    emoji:'🔮', color:'#ff88cc', glow:'#ff44aa', cost:35, cd:3500, hp:40,  speed:220, radius:10, dmg:10, atkRange:20, atkCd:500,  sightRange:400, shootRange:280, shootCd:1500, shootDmg:20, shootSpd:7,  shootR:9, pierce:true },
-  { id:'phoenix', name:'Phoenix', emoji:'🦅', color:'#ffaa00', glow:'#ff6600', cost:60, cd:6000, hp:90,  speed:230, radius:14, dmg:16, atkRange:28, atkCd:700,  sightRange:380, shootRange:240, shootCd:1600, shootDmg:18, shootSpd:7,  shootR:8 },
-  { id:'goliath', name:'Goliath', emoji:'👾', color:'#44ff88', glow:'#00cc44', cost:80, cd:9000, hp:300, speed:90,  radius:22, dmg:35, atkRange:45, atkCd:1600, sightRange:240, shootRange:0,   shootCd:99999,shootDmg:0,  shootSpd:0,  shootR:0 },
+  { id:'drake',   name:'Drake',   emoji:'🐉', color:'#ff5500', glow:'#ff8800', cost:55, cd:6000, hp:120, speed:170, radius:15, dmg:18, atkRange:55, atkCd:900,  sightRange:380, shootRange:190, shootCd:2200, shootDmg:14, shootSpd:5.5, shootR:8 },
+  { id:'specter', name:'Specter', emoji:'👻', color:'#b090ff', glow:'#8040ff', cost:40, cd:4500, hp:60,  speed:260, radius:12, dmg:13, atkRange:50, atkCd:650,  sightRange:400, shootRange:0,   shootCd:99999,shootDmg:0,  shootSpd:0,  shootR:0, phase:true },
+  { id:'golem',   name:'Golem',   emoji:'🛡️', color:'#88aaff', glow:'#4466ff', cost:70, cd:8000, hp:200, speed:110, radius:20, dmg:25, atkRange:65, atkCd:1200, sightRange:300, shootRange:0,   shootCd:99999,shootDmg:0,  shootSpd:0,  shootR:0 },
+  { id:'wisp',    name:'Wisp',    emoji:'🔮', color:'#ff88cc', glow:'#ff44aa', cost:35, cd:3500, hp:40,  speed:220, radius:10, dmg:10, atkRange:45, atkCd:500,  sightRange:420, shootRange:280, shootCd:1500, shootDmg:20, shootSpd:7,  shootR:9, pierce:true },
+  { id:'phoenix', name:'Phoenix', emoji:'🦅', color:'#ffaa00', glow:'#ff6600', cost:60, cd:6000, hp:90,  speed:230, radius:14, dmg:16, atkRange:50, atkCd:700,  sightRange:400, shootRange:240, shootCd:1600, shootDmg:18, shootSpd:7,  shootR:8 },
+  { id:'goliath', name:'Goliath', emoji:'👾', color:'#44ff88', glow:'#00cc44', cost:80, cd:9000, hp:300, speed:90,  radius:22, dmg:35, atkRange:70, atkCd:1400, sightRange:300, shootRange:0,   shootCd:99999,shootDmg:0,  shootSpd:0,  shootR:0 },
 ];
 
 // 플레이어 로드아웃 (기본값 = v13과 동일한 4스펠 4소환)
