@@ -49,17 +49,8 @@ function gameUpdate(dt){
     s.startTimer-=dt;
     if(s.startTimer<=0){s.started=true; showOverlay('FIGHT!','#f5c842',1.2);}
     s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
+    // JOIN은 HOST 상태만 기다림 (여기서 return)
     if(netRole==='join'){updateHUD(); return;}
-    // 카운트다운 중에도 이동은 허용
-    const [p1c,p2c]=s.players;
-    if(!p1c.isAI){
-      p1c.vx=(keys['ArrowRight']?1:0)-(keys['ArrowLeft']?1:0);
-      p1c.vy=(keys['ArrowDown']?1:0)-(keys['ArrowUp']?1:0);
-      if(p1c.jx||p1c.jy){p1c.vx=p1c.jx;p1c.vy=p1c.jy;}
-      const l=Math.sqrt(p1c.vx**2+p1c.vy**2);if(l>1){p1c.vx/=l;p1c.vy/=l;}
-    }
-    s.players.forEach(p=>p.update(dt,s.arena,p.id===1?p2c:p1c));
-    updateHUD();
     return;
   }
 
@@ -220,14 +211,14 @@ function updateHUD(){
   document.getElementById('score-p1').textContent=scores[isJoin?1:0];
   document.getElementById('score-p2').textContent=scores[isJoin?0:1];
   SPELLS.forEach((_,i)=>{
-    const sl=document.getElementById('sl-'+i);if(!sl)return;
+    const sl=document.getElementById('sl-'+i); if(!sl)return;
     sl.classList.toggle('active',me.selSpell===i);
     let cd=sl.querySelector('.cd-overlay');
     if(me.spellCDs[i]>0){if(!cd){cd=document.createElement('div');cd.className='cd-overlay';sl.appendChild(cd);}cd.textContent=(me.spellCDs[i]/1000).toFixed(1);}
     else if(cd)cd.remove();
   });
   SUMMONS.forEach((_,i)=>{
-    const sl=document.getElementById('sl-s'+i);if(!sl)return;
+    const sl=document.getElementById('sl-s'+i); if(!sl)return;
     let cd=sl.querySelector('.cd-overlay');
     if(me.summonCDs[i]>0){if(!cd){cd=document.createElement('div');cd.className='cd-overlay';sl.appendChild(cd);}cd.textContent=(me.summonCDs[i]/1000).toFixed(1);}
     else if(cd)cd.remove();
@@ -301,24 +292,19 @@ function showResult(){
 }
 
 function rematch(){
-  totalStats={kills:0,spells:0,summons:0};scores=[0,0];roundNum=1;
-  applyLoadout();buildActionBar();
+  totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
+  applyLoadout(); rebuildActionBar();
   GS=createGS();
-  if(netRole)GS.players[1].isAI=false;
-  showScreen('game-screen');resetGameHUD();
-  paused=false;lastTime=performance.now();
-  setTimeout(()=>{canvas.focus();},50);
-  rafId=requestAnimationFrame(tick);
-  if(netRole==='host'&&netConn){try{netConn.send({type:'rematch'});}catch(e){}}
+  if(netRole) GS.players[1].isAI=false;
+  showScreen('game-screen'); resetGameHUD();
+  paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);
+  if(netRole==='host'&&netConn){ try{netConn.send({type:'rematch'});}catch(e){} }
 }
 function startGame(diff){
-  difficulty=diff;scores=[0,0];roundNum=1;totalStats={kills:0,spells:0,summons:0};
-  applyLoadout();buildActionBar();
-  GS=createGS();showScreen('game-screen');resetGameHUD();
-  paused=false;lastTime=performance.now();
-  // 키보드 이벤트가 확실히 받아지도록 포커스
-  setTimeout(()=>{canvas.focus();},50);
-  rafId=requestAnimationFrame(tick);
+  difficulty=diff; scores=[0,0]; roundNum=1; totalStats={kills:0,spells:0,summons:0};
+  applyLoadout(); rebuildActionBar();
+  GS=createGS(); showScreen('game-screen'); resetGameHUD();
+  paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);
 }
 function resetGameHUD(){
   document.getElementById('timer-disp').textContent=settings.timerDuration;
