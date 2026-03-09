@@ -3,9 +3,9 @@
 let GS=null, rafId=null, lastTime=0, paused=false;
 
 function calcArena(){
-  const padH=60,padTop=82,padBot=82;
-  const maxW=Math.min(W-padH*2,1100), maxH=Math.min(H-padTop-padBot,620);
-  return {x:(W-maxW)/2,y:padTop+(H-padTop-padBot-maxH)/2,w:maxW,h:maxH,padding:4};
+  const padTop=68, padBot=68, padH=0;
+  const maxW=Math.min(W-padH*2, W), maxH=Math.min(H-padTop-padBot, H-padTop-padBot);
+  return {x:(W-maxW)/2, y:padTop+(H-padTop-padBot-maxH)/2, w:maxW, h:maxH, padding:4};
 }
 
 function createGS(){
