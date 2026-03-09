@@ -148,11 +148,14 @@ function gameUpdate(dt){
 
   // 카운트다운
   if(!s.started){
+    // JOIN은 HOST state로만 started=true 받음 (로컬 타이머 건드리지 않음)
+    if(netRole==='join'){
+      s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
+      updateHUD(); return;
+    }
     s.startTimer-=dt;
     if(s.startTimer<=0){s.started=true; showOverlay('FIGHT!','#f5c842',1.2);}
     s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
-    // JOIN은 HOST 상태만 기다림 (여기서 return)
-    if(netRole==='join'){updateHUD(); return;}
     return;
   }
 

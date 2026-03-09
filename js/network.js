@@ -101,11 +101,19 @@ function handleNetData(data){
 function startOnlineGame(role){
   difficulty='normal';
   scores=[0,0];roundNum=1;totalStats={kills:0,spells:0,summons:0};
+  _showResultPending=false;
   joinCreatureCache={};
   document.getElementById('p2-name-span').textContent='PLAYER 2';
+  // 화면 먼저 표시 후 canvas 크기 설정
+  showScreen('game-screen');
+  W=canvas.width=window.innerWidth;
+  H=canvas.height=window.innerHeight;
   GS=createGS();
   GS.players[1].isAI=false;
-  showScreen('game-screen');resetGameHUD();
+  spawnPillars(GS);
+  spellEffects=[];
+  resetGameHUD();
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
   paused=false;lastTime=performance.now();
   if(role==='host'&&netConn)netConn.send({type:'start'});
   rafId=requestAnimationFrame(tick);
@@ -168,6 +176,7 @@ function netSyncState(){
 function applyNetState(ns){
   if(!GS||!ns)return;
   const a=GS.arena;
+  if(!a||!a.w||!a.h)return; // arena 미초기화 방지
   // 비율(0~1) → 로컬 픽셀
   const ax=nx=>a.x+nx*a.w;
   const ay=ny=>a.y+ny*a.h;
