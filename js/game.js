@@ -648,7 +648,7 @@ function checkRoundEnd(){
     showOverlay('ROUND '+roundNum,'#f5c842',1.8);
     setTimeout(()=>{
       _showResultPending=false;
-      spellEffects=[]; GS=createGS(); spawnPillars(GS);
+      resizeCanvas(); spellEffects=[]; GS=createGS(); spawnPillars(GS);
       const td=document.getElementById('timer-disp');
       if(td){ td.textContent=settings.timerDuration; td.style.color=''; }
     }, 1800);
@@ -786,9 +786,10 @@ function _doRematch(){
   rematchReady=false; _showResultPending=false;
   totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
   applyLoadout(); rebuildActionBar();
+  showScreen('game-screen'); resizeCanvas();
   spellEffects=[]; GS=createGS(); spawnPillars(GS);
   if(netRole) GS.players[1].isAI=false;
-  showScreen('game-screen'); resetGameHUD();
+  resetGameHUD();
   paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);
 }
 function startGame(diff){

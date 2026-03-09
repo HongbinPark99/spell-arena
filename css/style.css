@@ -6,7 +6,7 @@
   --ui:rgba(8,4,22,0.94); --border:rgba(100,60,200,0.38); --text:#e8e0ff; --dim:#7868a0;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg);color:var(--text);font-family:'Raleway',sans-serif;overflow:hidden;user-select:none;touch-action:none;width:100vw;height:100vh;}
+body{background:var(--bg);color:var(--text);font-family:'Raleway',sans-serif;overflow:hidden;user-select:none;touch-action:none;width:100vw;height:100vh;margin:0;padding:0;}
 
 /* ══ 화면 시스템 (중복 없음 — 이 규칙이 전부) ══
    .screen      → 일반 메뉴 화면 (JS가 display:flex/none 직접 제어)
@@ -16,7 +16,7 @@ body{background:var(--bg);color:var(--text);font-family:'Raleway',sans-serif;ove
 .screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;overflow:hidden;}
 .game-screen-wrap{position:absolute;inset:0;display:none;z-index:1;}
 .result-overlay{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:18px;padding:20px 16px;background:rgba(3,1,12,0.93);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);overflow-y:auto;}
-canvas{position:absolute;top:0;left:0;touch-action:none;}
+canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block;touch-action:none;}
 
 /* ══ 타이틀 ══ */
 #title-screen{background:radial-gradient(ellipse at 30% 70%,rgba(255,80,0,.08) 0%,transparent 55%),radial-gradient(ellipse at 70% 30%,rgba(74,240,255,.07) 0%,transparent 55%),radial-gradient(ellipse at 50% 50%,#1a0838 0%,#05030f 70%);}

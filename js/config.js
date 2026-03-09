@@ -122,7 +122,13 @@ let difficulty='normal', roundNum=1, scores=[0,0], totalStats={kills:0,spells:0,
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
 let W, H;
-function resizeCanvas(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
+function resizeCanvas(){
+  // game-screen이 보이는 상태에서 실제 뷰포트를 정확히 측정
+  const gw=document.getElementById('game-screen');
+  const w = (gw&&gw.offsetWidth>0) ? gw.offsetWidth : window.innerWidth;
+  const h = (gw&&gw.offsetHeight>0) ? gw.offsetHeight : window.innerHeight;
+  W=canvas.width=w; H=canvas.height=h;
+}
 window.addEventListener('resize', ()=>{ resizeCanvas(); if(GS) recalcArena(); });
 
 function hex2rgb(hex){
