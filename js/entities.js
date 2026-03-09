@@ -693,8 +693,168 @@ class Player {
       ctx.restore();
     }
   }
+}
 
-  // ══ DRAKE — 번개 드래곤 ════════════════
+class Creature {
+  constructor(x,y,def,ownerId){
+    this.x=x; this.y=y; this.def=def; this.ownerId=ownerId;
+    this.hp=def.hp; this.maxHp=def.hp;
+    this.radius=def.radius; this.speed=def.speed;
+    this.color=def.color; this.glow=def.glow;
+    this.alive=true; this.vx=0; this.vy=0;
+    this.atkTimer=0; this.shootTimer=0;
+    this.flash=0; this.invincible=0;
+    this.facing=ownerId===1?1:-1;
+    this.trail=[]; this.spawnScale=0.1; this.age=0;
+  }
+
+  update(dt,arena,players,creatures,projs){
+    if(!this.alive)return;
+    this.age+=dt; this.spawnScale=Math.min(1,this.spawnScale+dt*4);
+    if(this.flash>0)this.flash-=dt*5;
+    if(this.invincible>0)this.invincible-=dt;
+    if(this.atkTimer>0)this.atkTimer-=dt*1000;
+    if(this.shootTimer>0)this.shootTimer-=dt*1000;
+
+    const enemyPlayer=players.find(p=>p.id!==this.ownerId&&p.alive);
+    const enemyCreatures=creatures.filter(c=>c.ownerId!==this.ownerId&&c.alive);
+
+    // ── 타겟 선정: 적 소환수 우선(가까운 것), 없으면 적 플레이어 ──
+    let target=null, bestD=Infinity;
+    enemyCreatures.forEach(c=>{
+      const d=Math.hypot(c.x-this.x,c.y-this.y);
+      if(d<bestD){bestD=d;target=c;}
+    });
+    if(!target&&enemyPlayer){
+      target=enemyPlayer;
+      bestD=Math.hypot(enemyPlayer.x-this.x,enemyPlayer.y-this.y);
+    }
+
+    if(target){
+      const dx=target.x-this.x, dy=target.y-this.y;
+      const dist=Math.sqrt(dx*dx+dy*dy)||1;
+      this.facing=dx>0?1:-1;
+
+      // ── 원거리 공격 ──
+      if(this.def.shootRange>0 && dist<this.def.shootRange && this.shootTimer<=0){
+        this.shootTimer=this.def.shootCd;
+        projs.push(new Projectile(
+          this.x,this.y,
+          (dx/dist)*this.def.shootSpd,(dy/dist)*this.def.shootSpd,
+          {name:'shot',color:this.def.color,dmg:this.def.shootDmg,
+           speed:this.def.shootSpd,radius:this.def.shootR,
+           pierce:this.def.pierce||false,slow:false},
+          this.ownerId+'_c'
+        ));
+      }
+
+      // ── 근접 공격: 두 물체의 반지름 합 + atkRange 여유 ──
+      // 타겟의 반지름도 고려해서 충분히 넓게 판정
+      const targetR = target.radius||20;
+      const meleeDist = this.def.atkRange + this.radius + targetR;
+      if(dist < meleeDist && this.atkTimer<=0){
+        this.atkTimer=this.def.atkCd;
+        if(target.takeDamage) target.takeDamage(this.def.dmg);
+        // 근접 공격 슬래시 이펙트
+        if(typeof GS!=='undefined'&&GS){
+          const mx=this.x+dx/dist*this.radius, my=this.y+dy/dist*this.radius;
+          for(let i=0;i<6;i++){
+            const a=Math.atan2(dy,dx)+(-0.5+Math.random())*1.2;
+            const v=3+Math.random()*4;
+            GS.particles.push(new Particle(mx,my,this.color,Math.cos(a)*v,Math.sin(a)*v,2+Math.random()*2,.4+Math.random()*.3));
+          }
+        }
+      }
+
+      // ── 이동: 근접범위 밖이면 접근, 안이면 정지 ──
+      // 정지 거리를 공격 가능 거리보다 살짝 더 멀게 = 계속 밀착
+      const stopDist = meleeDist - this.radius*0.5;
+      if(dist > stopDist){
+        this.vx=dx/dist; this.vy=dy/dist;
+      } else {
+        this.vx*=0.85; this.vy*=0.85;
+      }
+    } else {
+      // 타겟 없으면 주인 플레이어 따라가기
+      const own=players.find(p=>p.id===this.ownerId);
+      if(own){
+        const dx=own.x-this.x, dy=own.y-this.y;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        if(d>70){this.vx=dx/d*.5; this.vy=dy/d*.5;}
+        else{this.vx*=.9; this.vy*=.9;}
+      }
+    }
+
+    this.x+=this.vx*this.speed*dt;
+    this.y+=this.vy*this.speed*dt;
+    const pad=this.def.phase?-15:this.radius+arena.padding;
+    this.x=Math.max(arena.x+pad,Math.min(arena.x+arena.w-pad,this.x));
+    this.y=Math.max(arena.y+pad,Math.min(arena.y+arena.h-pad,this.y));
+    this.trail.push({x:this.x,y:this.y,t:1});
+    if(this.trail.length>6)this.trail.shift();
+    this.trail.forEach(t=>t.t-=dt*5);
+  }
+
+  // FIX #1: No knockback
+  takeDamage(dmg){
+    if(this.invincible>0)return;
+    this.hp-=dmg; this.flash=1; this.invincible=.12;
+    // 피격 이펙트 (renderer.js의 spawnHitFX 호출)
+    if(typeof spawnHitFX==='function') spawnHitFX(this.x,this.y,this.color);
+    if(this.hp<=0){
+      this.alive=false;
+      if(typeof spawnDeathFX==='function') spawnDeathFX(this.x,this.y,this.color);
+    }
+  }
+
+  draw(ctx){
+    const sc=this.spawnScale, x=this.x, y=this.y, f=this.facing;
+    this.trail.forEach(t=>{ if(t.t<=0)return; ctx.beginPath(); ctx.arc(t.x,t.y,this.radius*t.t*.32,0,Math.PI*2); ctx.fillStyle=this.color+Math.floor(t.t*20).toString(16).padStart(2,'0'); ctx.fill(); });
+    ctx.save(); ctx.translate(x,y); ctx.scale(sc*f,sc);
+    const fl=this.flash>0&&Math.floor(Date.now()/55)%2===0;
+    const R=this.radius;
+    ctx.shadowBlur=fl?18:12; ctx.shadowColor=fl?'#fff':this.glow;
+
+    switch(this.def.name){
+      case'Drake':   this._drawDrake(ctx,R,fl);   break;
+      case'Specter': this._drawSpecter(ctx,R,fl); break;
+      case'Golem':   this._drawGolem(ctx,R,fl);   break;
+      case'Wisp':    this._drawWisp(ctx,R,fl);    break;
+      case'Phoenix': this._drawPhoenix(ctx,R,fl); break;
+      case'Goliath': this._drawGoliath(ctx,R,fl); break;
+      default:       this._drawWisp(ctx,R,fl);
+    }
+    ctx.restore();
+
+    // HP bar
+    const bw=50, bh=7, bx=x-bw/2, by=y-this.radius*sc-16;
+    ctx.fillStyle='rgba(0,0,0,.75)'; ctx.beginPath(); ctx.roundRect(bx-1,by-1,bw+2,bh+2,3); ctx.fill();
+    const hp=Math.max(0,this.hp/this.maxHp);
+    const barCol=hp>0.6?this.color:hp>0.3?'#ffaa00':'#ff3300';
+    // 바 그림자
+    ctx.fillStyle=barCol+'44'; ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,2); ctx.fill();
+    // 바 채움
+    ctx.fillStyle=barCol; ctx.beginPath(); ctx.roundRect(bx,by,bw*hp,bh,hp>0.98?2:0); ctx.fill();
+    // 광택
+    ctx.fillStyle='rgba(255,255,255,.25)'; ctx.beginPath(); ctx.roundRect(bx,by,bw*hp,bh*.45,1); ctx.fill();
+    // 테두리
+    ctx.strokeStyle=this.color+'66'; ctx.lineWidth=1; ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,2); ctx.stroke();
+    // HP 숫자
+    ctx.font='bold 8.5px "Cinzel",serif'; ctx.textAlign='center'; ctx.fillStyle='#ffffffdd';
+    ctx.shadowBlur=3; ctx.shadowColor='#000';
+    ctx.fillText(`${Math.ceil(this.hp)} / ${this.maxHp}`, x, by-2);
+    ctx.shadowBlur=0;
+    // 전투 중 ⚔ 아이콘 (atkTimer가 막 발동된 직후 0.3초)
+    if(this.atkTimer > this.def.atkCd - 300){
+      ctx.font='10px serif'; ctx.textAlign='center';
+      ctx.fillStyle='#ffee44';
+      ctx.shadowBlur=8; ctx.shadowColor='#ff8800';
+      ctx.fillText('⚔', x + bw/2 + 8, by + 5);
+      ctx.shadowBlur=0;
+    }
+  }
+
+  // ══ DRAKE — 화염 드래곤 ══════════════════
   _drawDrake(ctx,R,fl){
     const T=Date.now()*.003;
     const bolt=fl?'#ccc':'#4af0ff', dk='#001028', scale_='#002855', bright='#1a6aaa';
@@ -1404,7 +1564,6 @@ class Player {
   }
 }
 
-// ─── PROJECTILE ──────────────────────────
 class Projectile {
   constructor(x,y,vx,vy,spell,ownerId){
     this.x=x; this.y=y; this.vx=vx; this.vy=vy;
