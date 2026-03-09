@@ -825,7 +825,7 @@ class Creature {
       this.vx=0; this.vy=0;
     }
     this.trail.push({x:this.x,y:this.y,t:1});
-    if(this.trail.length>6)this.trail.shift();
+    if(this.trail.length>4)this.trail.shift();
     this.trail.forEach(t=>t.t-=dt*5);
   }
 
@@ -1804,7 +1804,7 @@ class ManaOrb {
 class Particle {
   constructor(x,y,col,vx,vy,sz,life){this.x=x;this.y=y;this.color=col;this.vx=vx;this.vy=vy;this.sz=sz;this.life=life;this.maxLife=life;this.alive=true;}
   update(dt){this.life-=dt;if(this.life<=0){this.alive=false;return;}this.x+=this.vx*dt*60;this.y+=this.vy*dt*60;this.vy+=.1;this.vx*=.97;}
-  draw(ctx){const a=this.life/this.maxLife;ctx.beginPath();ctx.arc(this.x,this.y,this.sz*a,0,Math.PI*2);ctx.fillStyle=this.color+Math.floor(a*255).toString(16).padStart(2,'0');ctx.fill();}
+  draw(ctx){const a=this.life/this.maxLife;ctx.beginPath();ctx.arc(this.x,this.y,this.sz*a,0,Math.PI*2);ctx.shadowBlur=0;ctx.fillStyle=this.color+Math.floor(a*255).toString(16).padStart(2,'0');ctx.fill();}
 }
 
 // ══════════════════════════════════════════════

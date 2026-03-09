@@ -3,7 +3,7 @@
 
 let peer=null, netConn=null, netRole=null, netReady=false;
 let netSyncTimer=0;
-const NET_HZ=30;
+const NET_HZ=20; // 20hz — 렉 감소
 let remoteP2Input={vx:0,vy:0,sdx:1,sdy:0};
 let joinCreatureCache={};
 
@@ -79,9 +79,11 @@ function handleNetData(data){
   if(!data||!data.type)return;
   if(data.type==='start'  &&netRole==='join') startOnlineGame('join');
   if(data.type==='input'  &&netRole==='host') remoteP2Input=data;
-  if(data.type==='state'  &&netRole==='join') applyNetState(data.gs);
-  if(data.type==='action' &&netRole==='host') applyRemoteAction(data);
-  if(data.type==='sound') playSFX(data.sfx,data.vol||0.5);
+  if(data.type==='state'   &&netRole==='join') applyNetState(data.gs);
+  if(data.type==='action'  &&netRole==='host') applyRemoteAction(data);
+  if(data.type==='sound')  playSFX(data.sfx,data.vol||0.5);
+  if(data.type==='roundOver' &&netRole==='join') applyRoundOver(data);
+  if(data.type==='roundStart'&&netRole==='join') applyRoundStart(data);
   // 상대방이 rematch 요청 → 내가 이미 눌렀으면 즉시 시작, 아니면 버튼에 알림
   if(data.type==='rematch'){
     if(rematchReady){
@@ -109,6 +111,19 @@ function startOnlineGame(role){
   rafId=requestAnimationFrame(tick);
 }
 
+// HOST → JOIN: 긴급 전체 동기화 (gameOver 이벤트용)
+function netSyncFull(){
+  if(netRole!=='host'||!netConn||!GS)return;
+  const a=GS.arena;
+  const nx=x=>(x-a.x)/a.w, ny=y=>(y-a.y)/a.h;
+  const payload={
+    type:'roundOver',
+    scores:[...scores], roundNum, roundWinnerId:GS._roundWinnerId||null,
+    players:GS.players.map(p=>({id:p.id,hp:Math.round(p.hp),alive:p.alive})),
+  };
+  try{netConn.send(payload);}catch(e){}
+}
+
 // HOST → JOIN: 정규화 좌표(0~1)로 전송 → 화면 크기 달라도 동일하게 표시
 function netSyncState(){
   if(netRole!=='host'||!netConn||!GS)return;
@@ -129,7 +144,7 @@ function netSyncState(){
       summonCDs:p.summonCDs.map(v=>Math.round(v)),
       selSpell:p.selSpell
     })),
-    projectiles:GS.projectiles.map(pr=>({
+    projectiles:GS.projectiles.slice(0,30).map(pr=>({
       nx:nx(pr.x), ny:ny(pr.y),
       nvx:pr.vx/a.w, nvy:pr.vy/a.h,
       ownerId:pr.ownerId,
@@ -137,15 +152,14 @@ function netSyncState(){
              speed:pr.spell.speed,radius:pr.spell.radius,
              pierce:!!pr.spell.pierce,slow:!!pr.spell.slow}
     })),
-    creatures:GS.creatures.map(c=>({
+    creatures:GS.creatures.filter(c=>c.alive).map(c=>({
       cid:c.cid||('c_'+c.ownerId+'_'+c.def.name),
       nx:nx(c.x), ny:ny(c.y), defName:c.def.name, ownerId:c.ownerId,
       hp:Math.round(c.hp), maxHp:c.maxHp, facing:c.facing,
-      alive:c.alive, spawnScale:c.spawnScale
+      alive:true, spawnScale:c.spawnScale
     })),
-    orbs:GS.orbs.map(o=>({nx:nx(o.x),ny:ny(o.y),alive:o.alive})),
-    timer:GS.timer, gameOver:GS.gameOver, started:GS.started,
-    shakeX:GS.shakeX, shakeY:GS.shakeY,
+    orbs:GS.orbs.filter(o=>o.alive).map(o=>({nx:nx(o.x),ny:ny(o.y)})),
+    timer:Math.round(GS.timer), gameOver:GS.gameOver, started:GS.started,
   };
   try{netConn.send({type:'state',gs});}catch(e){}
 }
@@ -188,24 +202,58 @@ function applyNetState(ns){
   }).filter(Boolean);
   joinCreatureCache=newCache;
 
-  GS.orbs=ns.orbs.filter(o=>o.alive).map(o=>new ManaOrb(ax(o.nx),ay(o.ny)));
+  GS.orbs=ns.orbs.map(o=>new ManaOrb(ax(o.nx),ay(o.ny)));
   GS.timer=ns.timer; GS.gameOver=ns.gameOver;
   if(ns.shakeX){GS.shakeX=ns.shakeX; GS.shakeY=ns.shakeY;}
   if(ns.started&&!GS.started){GS.started=true; showOverlay('FIGHT!','#f5c842',1.2);}
-  if(ns.gameOver&&!GS._resultShown){
-    GS._resultShown=true;
-    updateHUD();
-    // gameOver 오버레이 표시 후 결과 화면
-    const myId=2; // JOIN은 항상 P2
-    const p1=GS.players[0], p2=GS.players[1];
-    let msg='DRAW!', col='#f5c842';
-    if(!p1.alive){msg='YOU WIN!'; col='#4af0ff';}
-    else if(!p2.alive){msg='DEFEATED!'; col='#ff6b35';}
-    else if(p1.hp<p2.hp){msg='YOU WIN!'; col='#4af0ff';}
-    else if(p2.hp<p1.hp){msg='DEFEATED!'; col='#ff6b35';}
-    showOverlay(msg, col, 2.4);
-    setTimeout(showResult, 2800);
+  // gameOver 처리는 roundOver 메시지로 통합 — applyNetState에서는 처리 안 함
+}
+
+// JOIN: 라운드 종료 처리
+function applyRoundOver(data){
+  if(!GS||GS._resultShown)return;
+  GS.gameOver=true;
+  // scores를 HOST로부터 정확하게 동기화
+  scores[0]=data.scores[0]; scores[1]=data.scores[1];
+  // HP 동기화
+  if(data.players){
+    data.players.forEach((np,i)=>{ const p=GS.players[i]; if(p){p.hp=np.hp; p.alive=np.alive;} });
   }
+  updateHUD();
+  // 승패 오버레이: roundWinnerId 기준
+  const myId=2; // JOIN은 항상 P2
+  const wid=data.roundWinnerId;
+  let msg,col;
+  if(!wid){msg='DRAW!';col='#f5c842';}
+  else if(wid===myId){msg='YOU WIN!';col='#4af0ff';}
+  else{msg='DEFEATED!';col='#ff6b35';}
+  showOverlay(msg,col,2.4);
+  // 매치 종료 여부: scores 기준으로 JOIN 쪽에서도 판단
+  const matchOver=scores[0]>=WIN_ROUNDS||scores[1]>=WIN_ROUNDS||data.roundNum>=MAX_ROUNDS;
+  if(matchOver){
+    GS._resultShown=true;
+    totalStats.kills+=(GS.players[1].spellsCast||0);
+    totalStats.spells+=GS.players[1].spellsCast||0;
+    setTimeout(showResult,2800);
+  }
+  // 라운드 계속 → roundStart 메시지를 기다림
+}
+
+// JOIN: 새 라운드 시작 처리
+function applyRoundStart(data){
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+  roundNum=data.roundNum;
+  const el=document.getElementById('round-lbl');
+  if(el) el.textContent='ROUND '+roundNum;
+  _showResultPending=false;
+  spellEffects=[];
+  GS=createGS();
+  GS.players[1].isAI=false;
+  spawnPillars(GS);
+  const td=document.getElementById('timer-disp');
+  if(td){td.textContent=settings.timerDuration;td.style.color='';}
+  paused=false; lastTime=performance.now();
+  rafId=requestAnimationFrame(tick);
 }
 
 // HOST: JOIN 즉각 액션 처리 (스펠/소환/검)
@@ -214,7 +262,12 @@ function applyRemoteAction(data){
   const p2=GS.players[1]; if(!p2||!p2.alive)return;
   if(data.action==='spell'){
     p2.selSpell=data.idx; p2.sdx=data.sdx; p2.sdy=data.sdy;
-    const pp=p2.castSpell(); if(pp){GS.projectiles.push(...pp); playSFX('spell',0.4);}
+    const pp=p2.castSpell();
+    if(pp){
+      if(typeof handleSpellResult==='function') handleSpellResult(pp,p2);
+      else if(Array.isArray(pp)) GS.projectiles.push(...pp);
+      playSFX('spell',0.4);
+    }
   } else if(data.action==='summon'){
     const c=p2.summonCreature(data.idx);
     if(c){c.cid='p2_'+Date.now()+'_'+data.idx; GS.creatures.push(c);

@@ -208,6 +208,7 @@ function gameUpdate(dt){
   // 투사체
   s.projectiles.forEach(pr=>pr.update(dt,s.arena));
   s.projectiles=s.projectiles.filter(pr=>pr.alive);
+  if(s.projectiles.length>40) s.projectiles.length=40;
   s.projectiles.forEach(pr=>{
     s.players.forEach(p=>{
       if(!p.alive)return;
@@ -442,8 +443,10 @@ function gameUpdate(dt){
     });
   });
 
-  s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
-  s.shakeX=0; s.shakeY=0; // shake disabled
+  s.particles.forEach(p=>p.update(dt));
+  s.particles=s.particles.filter(p=>p.alive);
+  if(s.particles.length>120) s.particles.splice(0, s.particles.length-120); // 최대 120개
+  s.shakeX=0; s.shakeY=0;
 
   // HOST → JOIN 동기화
   if(netRole==='host'&&netConn){
@@ -602,15 +605,18 @@ function fireChainLightning(caster, sp){
 }
 
 function handleDeath(dead,killer){
-  if(!GS||GS.gameOver)return;  // 중복 호출 완전 차단
+  if(!GS||GS.gameOver)return;
   GS.gameOver=true;
-  spawnDeathFX(dead.x,dead.y,dead.color); shakeScreen(.5); playSFX('death',0.7);
-  scores[killer.id-1]++;
+  spawnDeathFX(dead.x,dead.y,dead.color); playSFX('death',0.7);
+  // scores는 HOST/싱글에서만 증가 (JOIN은 HOST state로 동기화)
+  if(netRole!=='join') scores[killer.id-1]++;
   totalStats.kills++; totalStats.spells+=GS.players[0].spellsCast; totalStats.summons+=GS.players[0].summonsCast;
-  if(netRole==='host') netSyncState();
+  // HOST: scores 포함해서 즉시 동기화
+  if(netRole==='host'){ GS._roundWinnerId=killer.id; netSyncFull(); }
   const myId=netRole==='join'?2:1;
   showOverlay(killer.id===myId?'YOU WIN!':'DEFEATED!',killer.id===myId?'#4af0ff':'#ff6b35',2.4);
-  setTimeout(checkRoundEnd,2800);
+  // JOIN은 결과 처리를 하지 않음 — HOST로부터 roundEnd 메시지를 받아 처리
+  if(netRole!=='join') setTimeout(checkRoundEnd,2800);
 }
 
 function endRound(){
@@ -620,11 +626,12 @@ function endRound(){
   totalStats.spells+=p1.spellsCast; totalStats.summons+=p1.summonsCast;
   let winner=null;
   if(p1.hp>p2.hp)winner=p1; else if(p2.hp>p1.hp)winner=p2;
-  if(netRole==='host') netSyncState();
+  if(netRole!=='join' && winner) scores[winner.id-1]++;
+  if(netRole==='host'){ if(winner) GS._roundWinnerId=winner.id; netSyncFull(); }
   const myId=netRole==='join'?2:1;
-  if(winner){scores[winner.id-1]++; showOverlay(winner.id===myId?'TIME UP — WIN!':'TIME UP — LOSE!',winner.id===myId?'#4af0ff':'#ff6b35',2.4);}
+  if(winner) showOverlay(winner.id===myId?'TIME UP — WIN!':'TIME UP — LOSE!',winner.id===myId?'#4af0ff':'#ff6b35',2.4);
   else showOverlay('TIME UP — DRAW!','#f5c842',2.4);
-  setTimeout(checkRoundEnd,2800);
+  if(netRole!=='join') setTimeout(checkRoundEnd,2800);
 }
 
 // ── 3라운드 매치 ──────────────────────────────
@@ -633,22 +640,27 @@ const WIN_ROUNDS = 2; // 2선승
 
 function checkRoundEnd(){
   if(_showResultPending) return;
-  // 2선승 달성 여부 확인
   const matchOver = scores[0]>=WIN_ROUNDS || scores[1]>=WIN_ROUNDS || roundNum>=MAX_ROUNDS;
   if(matchOver){
     showResult();
   } else {
-    // 다음 라운드
     roundNum++;
     const el=document.getElementById('round-lbl');
     if(el) el.textContent='ROUND '+roundNum;
     _showResultPending=false;
     showOverlay('ROUND '+roundNum,'#f5c842',1.8);
     setTimeout(()=>{
+      if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
       _showResultPending=false;
       spellEffects=[]; GS=createGS(); spawnPillars(GS);
+      if(typeof _campaignAISpells!=='undefined'&&_campaignAISpells) _applyCampaignAISpells();
       const td=document.getElementById('timer-disp');
       if(td){ td.textContent=settings.timerDuration; td.style.color=''; }
+      // 루프 재시작 (gameOver로 멈춰있었으므로)
+      paused=false; lastTime=performance.now();
+      rafId=requestAnimationFrame(tick);
+      // HOST: JOIN에 새 라운드 시작 알림
+      if(netRole==='host'&&netConn){ try{netConn.send({type:'roundStart',roundNum});}catch(e){} }
     }, 1800);
   }
 }

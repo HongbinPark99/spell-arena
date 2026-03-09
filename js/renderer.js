@@ -6,6 +6,7 @@ function gameRender(){
   const sx=s.shakeX||0, sy=s.shakeY||0;
   // shake 범위를 포함해 여유있게 클리어 (ctx.translate로 이동해도 잘림 없음)
   ctx.clearRect(-16,-16,W+32,H+32);
+  ctx.shadowBlur=0; // 매 프레임 초기화
   try {
     ctx.save();
     if(sx||sy) ctx.translate(sx,sy);
@@ -25,7 +26,7 @@ function gameRender(){
       ctx.save();
       ctx.font=`bold ${130-(s.startTimer%1)*45}px 'Cinzel Decorative',serif`;
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillStyle=`rgba(245,200,66,${s.startTimer%1})`; ctx.shadowBlur=60; ctx.shadowColor='#f5c842';
+      ctx.fillStyle=`rgba(245,200,66,${s.startTimer%1})`; ctx.shadowBlur=30; ctx.shadowColor='#f5c842';
       ctx.fillText(t>0?t:'GO!',W/2,H/2);
       ctx.restore();
     }
@@ -75,7 +76,7 @@ function drawSpellEffects(ctx){
       }
     } else if(e.type==='shockwave_fx'){
       ctx.strokeStyle=e.color; ctx.lineWidth=3*(e.timer/e.maxTimer);
-      ctx.shadowBlur=20; ctx.shadowColor=e.color;
+      ctx.shadowBlur=13; ctx.shadowColor=e.color;
       ctx.beginPath(); ctx.arc(e.x,e.y,e.r||10,0,Math.PI*2); ctx.stroke();
     }
     ctx.restore();
@@ -87,7 +88,7 @@ function drawPlayerBuffs(ctx,p){
   if(p.shieldTimer>0){
     const a=Math.min(1,p.shieldTimer/700)*0.85;
     ctx.save(); ctx.globalAlpha=a;
-    ctx.shadowBlur=30; ctx.shadowColor='#4af0ff';
+    ctx.shadowBlur=19; ctx.shadowColor='#4af0ff';
     ctx.strokeStyle='#4af0ff'; ctx.lineWidth=4;
     ctx.beginPath(); ctx.arc(p.x,p.y,p.radius+8+Math.sin(T*3)*3,0,Math.PI*2); ctx.stroke();
     ctx.fillStyle='#4af0ff'; ctx.font='18px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -97,7 +98,7 @@ function drawPlayerBuffs(ctx,p){
   if(p.mirrorTimer>0){
     const a=Math.min(1,p.mirrorTimer/500)*0.85;
     ctx.save(); ctx.globalAlpha=a;
-    ctx.shadowBlur=30; ctx.shadowColor='#c0e8ff';
+    ctx.shadowBlur=19; ctx.shadowColor='#c0e8ff';
     ctx.strokeStyle='#c0e8ff'; ctx.lineWidth=3;
     const R=p.radius+12;
     ctx.beginPath(); ctx.moveTo(p.x,p.y-R); ctx.lineTo(p.x+R,p.y); ctx.lineTo(p.x,p.y+R); ctx.lineTo(p.x-R,p.y); ctx.closePath(); ctx.stroke();
@@ -108,7 +109,7 @@ function drawPlayerBuffs(ctx,p){
   if(p.blinkTimer>0){
     const a=(p.blinkTimer/400)*0.5;
     ctx.save(); ctx.globalAlpha=a;
-    ctx.shadowBlur=40; ctx.shadowColor=p.color;
+    ctx.shadowBlur=20; ctx.shadowColor=p.color;
     ctx.beginPath(); ctx.arc(p.x,p.y,p.radius+15,0,Math.PI*2);
     ctx.strokeStyle=p.color; ctx.lineWidth=3; ctx.stroke();
     ctx.restore();
@@ -116,7 +117,7 @@ function drawPlayerBuffs(ctx,p){
   if(p.markTimer&&p.markTimer>0){
     const a=Math.min(1,p.markTimer/3000)*0.7;
     ctx.save(); ctx.globalAlpha=a;
-    ctx.shadowBlur=20; ctx.shadowColor='#8822cc';
+    ctx.shadowBlur=13; ctx.shadowColor='#8822cc';
     ctx.strokeStyle='#8822cc'; ctx.lineWidth=2; ctx.setLineDash([4,4]);
     ctx.beginPath(); ctx.arc(p.x,p.y,p.radius+14+Math.sin(T*4)*4,0,Math.PI*2); ctx.stroke();
     ctx.setLineDash([]);
@@ -221,7 +222,7 @@ function drawArena(a, players){
   clg.addColorStop(0,'rgba(160,80,255,0)'); clg.addColorStop(.5,'rgba(160,80,255,.18)'); clg.addColorStop(1,'rgba(160,80,255,0)');
   ctx.fillStyle=clg; ctx.fillRect(midX-24,a.y,48,a.h);
   // 주 선
-  ctx.shadowBlur=32; ctx.shadowColor='#a855f7cc';
+  ctx.shadowBlur=20; ctx.shadowColor='#a855f7cc';
   ctx.strokeStyle='rgba(210,140,255,.95)'; ctx.lineWidth=2.5;
   ctx.beginPath(); ctx.moveTo(midX,a.y); ctx.lineTo(midX,a.y+a.h); ctx.stroke();
   // 에너지 펄스
@@ -234,7 +235,7 @@ function drawArena(a, players){
   ctx.save();
   const pulse=Math.sin(T*2.4)*.4+.6;
   const plr=18*pulse;
-  ctx.shadowBlur=44; ctx.shadowColor='#c084fc';
+  ctx.shadowBlur=22; ctx.shadowColor='#c084fc';
   const og=ctx.createRadialGradient(midX,cy,0,midX,cy,plr*1.8);
   og.addColorStop(0,'rgba(255,255,255,.96)'); og.addColorStop(.3,'rgba(210,140,255,.9)'); og.addColorStop(.75,'rgba(168,85,247,.55)'); og.addColorStop(1,'rgba(0,0,0,0)');
   ctx.beginPath(); ctx.arc(midX,cy,plr*1.8,0,Math.PI*2); ctx.fillStyle=og; ctx.fill();
@@ -242,13 +243,13 @@ function drawArena(a, players){
 
   // 아레나 테두리
   ctx.save();
-  ctx.shadowBlur=24; ctx.shadowColor='#a855f7';
+  ctx.shadowBlur=15; ctx.shadowColor='#a855f7';
   ctx.strokeStyle='rgba(168,85,247,.65)'; ctx.lineWidth=3.5; ctx.strokeRect(a.x,a.y,a.w,a.h);
   ctx.shadowBlur=0;
   // 코너 L자 장식
   const cl=44;
   [[a.x,a.y,1,1,'#4af0ff'],[a.x+a.w,a.y,-1,1,'#4af0ff'],[a.x,a.y+a.h,1,-1,'#ff6b35'],[a.x+a.w,a.y+a.h,-1,-1,'#ff6b35']].forEach(([x,y,sx,sy,col])=>{
-    ctx.shadowBlur=20; ctx.shadowColor=col;
+    ctx.shadowBlur=13; ctx.shadowColor=col;
     ctx.strokeStyle=col; ctx.lineWidth=4;
     ctx.beginPath(); ctx.moveTo(x+sx*cl,y); ctx.lineTo(x,y); ctx.lineTo(x,y+sy*cl); ctx.stroke();
     // 코너 다이아
@@ -310,7 +311,7 @@ function drawTotem(ctx,x,y,r,col,T){
   // 불꽃 (3단)
   if(flicker>.4){
     ctx.save();
-    ctx.shadowBlur=22*flicker; ctx.shadowColor=col;
+    ctx.shadowBlur=14*flicker; ctx.shadowColor=col;
     for(let f=0;f<3;f++){
       const fw=r*(1.1-f*.28)*flicker, fh=r*(1.5-f*.35)*flicker;
       const fg=ctx.createRadialGradient(x,y-r*3.5,0,x,y-r*3.5,fw);
