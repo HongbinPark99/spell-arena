@@ -96,32 +96,6 @@ function fireUltimate(player){
   }
 }
 
-// ── 콤보 히트 처리 ────────────────────────────────
-function registerComboHit(attacker, spellId, targetX, targetY){
-  const now=Date.now();
-  if(attacker.lastHitSpell===spellId && now-attacker.lastHitTime<2200){
-    attacker.comboCount=(attacker.comboCount||0)+1;
-    if(attacker.comboCount>=1){
-      // 콤보 폭발!
-      showNotif('🔗 COMBO x'+(attacker.comboCount+1)+'!','#ff88ff');
-      shakeScreen(0.35);
-      const spd=6;
-      for(let i=0;i<8;i++){
-        const a=(i/8)*Math.PI*2;
-        GS.projectiles.push(new Projectile(
-          targetX,targetY, Math.cos(a)*spd, Math.sin(a)*spd,
-          {name:'combo',color:'#ff88ff',dmg:Math.min(20+attacker.comboCount*5,40),speed:spd,radius:8,pierce:false,slow:false},
-          attacker.id
-        ));
-      }
-      if(attacker.comboCount>=2) attacker.comboCount=0; // 3콤보 후 리셋
-    }
-  } else {
-    attacker.comboCount=0;
-  }
-  attacker.lastHitSpell=spellId; attacker.lastHitTime=now;
-}
-
 // ── 크리티컬 히트 (10% 확률, 1.8배 데미지) ──
 function calcDmg(dmg, x, y){
   if(Math.random()<0.10){
@@ -210,7 +184,6 @@ function gameUpdate(dt){
         const pd=calcDmg(pr.spell.dmg,pr.x,pr.y); p.takeDamage(pd);
         if(pr.spell.slow)p.slowTimer=2.2;
         spawnHitFX(pr.x,pr.y,pr.spell.color); shakeScreen(.14); playSFX('hit',0.35);
-        if(!pr.spell.ult){ const atk=s.players.find(pl=>pl.id===pr.ownerId); if(atk) registerComboHit(atk,pr.spell.name,pr.x,pr.y); }
         if(!p.alive)handleDeath(p, p.id===1?p2:p1);
         if(!pr.spell.pierce)pr.alive=false;
       }

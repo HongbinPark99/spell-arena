@@ -24,8 +24,6 @@ class Player {
     this.spellsCast=0; this.summonsCast=0; this.cdBoost=0;
     // 궁극기
     this.ult=0; this.maxUlt=100; this.ultReady=false; this.ultCD=0;
-    // 콤보
-    this.lastHitSpell=-1; this.lastHitTime=0; this.comboCount=0;
     this.invasionTimer=0; this.inEnemyTerritory=false;
   }
 
@@ -395,41 +393,11 @@ class Player {
       ctx.fillStyle=bright; ctx.beginPath(); ctx.arc(Math.cos(a)*r-R*.9,Math.sin(a)*r+R*.26,R*.055,0,Math.PI*2); ctx.fill();
     }
 
-    // 오른팔 (검 팔)
+    // 오른팔
     ctx.strokeStyle=mid; ctx.lineWidth=R*.24; ctx.lineCap='round';
     ctx.beginPath(); ctx.moveTo(R*.58,-R*.26); ctx.lineTo(R*.8,R*.16); ctx.stroke();
-    ctx.strokeStyle=edge+'22'; ctx.lineWidth=1; ctx.stroke();
     ctx.beginPath(); ctx.ellipse(R*.68,-R*.04,R*.2,R*.15,-.3,0,Math.PI*2);
     ctx.fillStyle=bright; ctx.fill(); ctx.strokeStyle=edge+'77'; ctx.lineWidth=1.5; ctx.stroke();
-
-    // 크리스탈 대검 (크고 인상적)
-    ctx.save(); ctx.translate(R*.82,R*.22); ctx.rotate(-.18);
-    if(!fl){ ctx.shadowBlur=40; ctx.shadowColor=gw; }
-    // 검날 (크리스탈 형태)
-    const bg=ctx.createLinearGradient(-R*.16,R*.28,-R*.02,-R*2.4);
-    bg.addColorStop(0,'#002266'); bg.addColorStop(.3,edge+'cc'); bg.addColorStop(.62,'#e8f8ff'); bg.addColorStop(1,'transparent');
-    ctx.beginPath();
-    ctx.moveTo(-R*.14,R*.3); ctx.lineTo(-R*.18,-R*1.12); ctx.lineTo(0,-R*2.42); ctx.lineTo(R*.18,-R*1.12); ctx.lineTo(R*.14,R*.3);
-    ctx.fillStyle=bg; ctx.fill();
-    // 검날 중앙 능선 (빛 반사)
-    ctx.strokeStyle='#d0f8ffcc'; ctx.lineWidth=2.5; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(-R*.06,-R*.08); ctx.lineTo(-R*.1,-R*1.88); ctx.stroke();
-    ctx.strokeStyle=edge+'88'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(R*.04,-R*.06); ctx.lineTo(R*.06,-R*1.42); ctx.stroke();
-    // 가드 (크로스 가드)
-    ctx.fillStyle=fl?'#ccc':gold;
-    ctx.beginPath(); ctx.roundRect(-R*.42,-R*.08,R*.84,R*.13,R*.02); ctx.fill();
-    ctx.strokeStyle=fl?'#888':'#885500'; ctx.lineWidth=1.5; ctx.strokeRect(-R*.42,-R*.08,R*.84,R*.13);
-    // 손잡이
-    ctx.strokeStyle=fl?'#555':'#220e00'; ctx.lineWidth=R*.14; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(0,-R*.04); ctx.lineTo(0,R*.44); ctx.stroke();
-    // 손잡이 감기
-    ctx.strokeStyle=fl?'#888':gold+'88'; ctx.lineWidth=2.5;
-    for(let k=0;k<3;k++){ ctx.beginPath(); ctx.moveTo(-R*.07,R*.08+k*R*.12); ctx.lineTo(R*.07,R*.08+k*R*.12); ctx.stroke(); }
-    // 폼멜
-    ctx.fillStyle=fl?'#aaa':edge; ctx.beginPath(); ctx.ellipse(0,R*.46,R*.14,R*.1,0,0,Math.PI*2); ctx.fill();
-    ctx.shadowBlur=0;
-    ctx.restore();
 
     // 목
     ctx.fillStyle=skin; ctx.beginPath(); ctx.roundRect(-R*.15,-R*.78,R*.3,R*.2,R*.04); ctx.fill();
@@ -616,43 +584,7 @@ class Player {
     ctx.beginPath(); ctx.ellipse(R*.68,-R*.04,R*.2,R*.15,-.3,0,Math.PI*2);
     ctx.fillStyle=ember; ctx.fill(); ctx.strokeStyle=lava+'66'; ctx.lineWidth=1.5; ctx.stroke();
 
-    // 대형 사신 낫 (길고 위협적인)
-    ctx.save(); ctx.translate(R*.84,R*.3); ctx.rotate(.2);
-    // 자루 (긴 뼈 스태프)
-    ctx.strokeStyle=fl?'#333':'#0a0205'; ctx.lineWidth=6; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(0,R*.5); ctx.lineTo(0,-R*2.1); ctx.stroke();
-    // 마디 장식
-    for(let y of[R*.3,R*.0,-R*.5,-R*1.0,-R*1.5]){
-      ctx.fillStyle=fl?'#555':blood; ctx.beginPath(); ctx.ellipse(0,y,R*.08,R*.05,0,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle=fl?'#888':lava+'66'; ctx.lineWidth=1.5; ctx.stroke();
-    }
-    // 낫 날 (대형 곡선)
-    if(!fl){ ctx.shadowBlur=44; ctx.shadowColor=lava; }
-    const blade=ctx.createLinearGradient(0,-R*2.0,R*.9,-R*.9);
-    blade.addColorStop(0,fl?'#ccc':lava+'ee'); blade.addColorStop(.35,fl?'#eee':fire); blade.addColorStop(.7,fl?'#aaa':'#ff220066'); blade.addColorStop(1,'transparent');
-    ctx.beginPath();
-    ctx.moveTo(0,-R*2.1);
-    ctx.bezierCurveTo(R*.6,-R*2.55,R*1.25,-R*2.15,R*1.15,-R*1.45);
-    ctx.bezierCurveTo(R*1.05,-R*.95, R*.5,-R*.8, 0,-R*1.1);
-    ctx.bezierCurveTo(-R*.1,-R*1.3,-R*.08,-R*1.8,0,-R*2.1);
-    ctx.fillStyle=blade; ctx.fill();
-    // 날 엣지 라인 (날카로운)
-    ctx.strokeStyle=fl?'#eee':lava+'ee'; ctx.lineWidth=2.5;
-    ctx.beginPath(); ctx.moveTo(0,-R*2.1); ctx.bezierCurveTo(R*.6,-R*2.55,R*1.25,-R*2.15,R*1.15,-R*1.45); ctx.stroke();
-    // 반사광
-    if(!fl){
-      ctx.strokeStyle='#ffffff55'; ctx.lineWidth=1.5;
-      ctx.beginPath(); ctx.moveTo(R*.12,-R*2.05); ctx.bezierCurveTo(R*.58,-R*2.4,R*1.0,-R*2.08,R*.96,-R*1.58); ctx.stroke();
-    }
-    ctx.shadowBlur=0;
-    // 낫 등날 (작은)
-    ctx.fillStyle=fl?'#aaa':bone;
-    ctx.beginPath(); ctx.moveTo(0,-R*2.1); ctx.lineTo(-R*.18,-R*2.0); ctx.lineTo(-R*.12,-R*1.9); ctx.lineTo(0,-R*1.95); ctx.fill();
-    // 폼멜 해골
-    ctx.shadowBlur=fl?0:12; ctx.shadowColor=lava;
-    ctx.fillStyle=fl?'#888':bone; ctx.beginPath(); ctx.arc(0,R*.55,R*.12,0,Math.PI*2); ctx.fill();
-    ctx.shadowBlur=0;
-    ctx.restore();
+
 
     // 목
     ctx.fillStyle=skin; ctx.beginPath(); ctx.roundRect(-R*.15,-R*.78,R*.3,R*.2,R*.04); ctx.fill();
