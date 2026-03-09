@@ -1,6 +1,8 @@
 // game.js — 게임 루프 및 상태 관리
 
 let GS=null, rafId=null, lastTime=0, paused=false;
+// 새 스펠 이펙트 오브젝트 (화면에 살아있는 이펙트들)
+let spellEffects=[];  // {type, ...data}
 
 function calcArena(){
   const padTop=68, padBot=68, padH=0;
@@ -98,6 +100,37 @@ function fireUltimate(player){
 }
 
 // ── 크리티컬 히트 (10% 확률, 1.8배 데미지) ──
+// 독구름 스폰
+function spawnCloudZone(x,y,sp,ownerId){
+  spellEffects.push({
+    type:'cloud_zone', x, y, ownerId, r:sp.cloudR||55,
+    timer:sp.cloudDur||2500, maxTimer:sp.cloudDur||2500,
+    dmg:sp.cloudDmg||8, tickTimer:0,
+    color:sp.color||'#44ff88'
+  });
+  showNotif('☠️ 독구름!','#44ff88');
+  shakeScreen(0.1);
+}
+
+// 방어막 시각 FX
+function spawnShieldFX(x,y,color){
+  if(!GS) return;
+  for(let i=0;i<12;i++){
+    const a=(i/12)*Math.PI*2;
+    const vx=Math.cos(a)*3, vy=Math.sin(a)*3;
+    GS.particles.push(new Particle(x+Math.cos(a)*40,y+Math.sin(a)*40,vx,vy,color,14,0.6));
+  }
+}
+
+// 블링크 FX
+function spawnBlinkFX(x,y,color){
+  if(!GS) return;
+  for(let i=0;i<16;i++){
+    const a=(i/16)*Math.PI*2, spd=3+Math.random()*3;
+    GS.particles.push(new Particle(x,y,Math.cos(a)*spd,Math.sin(a)*spd,color,10,0.5));
+  }
+}
+
 function calcDmg(dmg, x, y){
   if(Math.random()<0.10){
     const cd=Math.round(dmg*1.8);
@@ -182,10 +215,27 @@ function gameUpdate(dt){
       const own=typeof pr.ownerId==='number'?pr.ownerId:parseInt(pr.ownerId);
       if(own===p.id)return;
       if(!s.gameOver&&Math.hypot(pr.x-p.x,pr.y-p.y)<p.radius+pr.radius){
-        const pd=calcDmg(pr.spell.dmg,pr.x,pr.y); p.takeDamage(pd);
-        if(pr.spell.slow)p.slowTimer=2.2;
+        // 방패/블링크 무적 중 → 막기
+        if(p.shieldTimer>0 || p.blinkTimer>0){
+          spawnHitFX(pr.x,pr.y,'#4af0ff'); pr.alive=false;
+          showNotif('🛡 막음!','#4af0ff'); return;
+        }
+        // 미러 → 투사체 반사
+        if(p.mirrorTimer>0){
+          pr.vx=-pr.vx; pr.vy=-pr.vy; pr.ownerId=p.id;
+          spawnHitFX(pr.x,pr.y,'#c0e8ff');
+          showNotif('🪞 반사!','#c0e8ff'); return;
+        }
+        // 마크 증폭
+        const markMult=(p.markTimer>0 ? (pr.spell.markAmp||1.5) : 1);
+        const pd=calcDmg(pr.spell.dmg*markMult,pr.x,pr.y); p.takeDamage(pd);
+        if(pr.spell.slow)p.slowTimer=pr.spell.slowDur||2.2;
+        // 마크 부여
+        if(pr.spell.mark){ p.markTimer=pr.spell.markDur||3000; showNotif('🌑 마크!','#8822cc'); }
         spawnHitFX(pr.x,pr.y,pr.spell.color); shakeScreen(.14); playSFX('hit',0.35);
         if(!p.alive)handleDeath(p, p.id===1?p2:p1);
+        // 독구름 터짐
+        if(pr.spell.type==='cloud'){ spawnCloudZone(pr.x,pr.y,pr.spell,pr.ownerId); pr.alive=false; }
         if(!pr.spell.pierce)pr.alive=false;
       }
     });
@@ -194,8 +244,33 @@ function gameUpdate(dt){
       const fromOwner=typeof pr.ownerId==='number'?pr.ownerId===c.ownerId:pr.ownerId.startsWith(String(c.ownerId));
       if(fromOwner)return;
       if(Math.hypot(pr.x-c.x,pr.y-c.y)<c.radius+pr.radius){
-        const cd=calcDmg(pr.spell.dmg,pr.x,pr.y); c.takeDamage(cd); spawnHitFX(pr.x,pr.y,pr.spell.color); playSFX('hit',0.25);
-        if(!c.alive){spawnDeathFX(c.x,c.y,c.color); showNotif(c.def.emoji+' '+c.def.name+' 처치!',c.color); playSFX('death',0.5);}
+        const markMult2=(c.markTimer&&c.markTimer>0?(pr.spell.markAmp||1.5):1);
+        const cd=calcDmg(pr.spell.dmg*markMult2,pr.x,pr.y);
+        if(pr.spell.slow){ c.slowTimer=pr.spell.slowDur||2.2; }
+        if(pr.spell.mark){ if(!c.markTimer)c.markTimer=0; c.markTimer=pr.spell.markDur||3000; }
+        c.takeDamage(cd); spawnHitFX(pr.x,pr.y,pr.spell.color); playSFX('hit',0.25);
+        // 버스트 파이어볼 — 파편 3개
+        if(pr.spell.burst && pr.alive){
+          for(let _b=0;_b<(pr.spell.burstCount||3);_b++){
+            const ba=((_b/(pr.spell.burstCount||3))*Math.PI*2)+Math.random()*.5;
+            const bsp={...pr.spell, dmg:pr.spell.burstDmg||10, burst:false, radius:7, speed:5};
+            GS.projectiles.push(new Projectile(pr.x,pr.y,Math.cos(ba)*5,Math.sin(ba)*5,bsp,pr.ownerId));
+          }
+        }
+        // 충격파 메테오
+        if(pr.spell.shockwave){
+          GS.creatures.filter(e=>e.alive&&e.ownerId===c.ownerId&&e!==c&&Math.hypot(e.x-pr.x,e.y-pr.y)<(pr.spell.shockwaveR||70))
+            .forEach(e=>{e.takeDamage(pr.spell.shockwaveDmg||25); spawnHitFX(e.x,e.y,'#ff8800');});
+          spellEffects.push({type:'shockwave_fx',x:pr.x,y:pr.y,r:0,maxR:pr.spell.shockwaveR||70,timer:400,maxTimer:400,color:'#ff8800'});
+        }
+        // 독구름
+        if(pr.spell.type==='cloud'){ spawnCloudZone(pr.x,pr.y,pr.spell,pr.ownerId); pr.alive=false; }
+        if(!c.alive){
+          spawnDeathFX(c.x,c.y,c.color);
+          showNotif(c.def.emoji+' '+c.def.name+' 처치!',c.color); playSFX('death',0.5);
+          const killer=GS.players.find(p=>p.id!==c.ownerId&&p.alive);
+          if(killer){ killer.mp=Math.min(killer.maxMp,killer.mp+15); }
+        }
         if(!pr.spell.pierce)pr.alive=false;
       }
     });
@@ -256,6 +331,46 @@ function gameUpdate(dt){
   }
 
   s.creatures.forEach(c=>c.update(dt,s.arena,s.players,s.creatures,s.projectiles));
+
+  // ── 스펠 이펙트 업데이트 ──
+  spellEffects=spellEffects.filter(e=>{
+    e.timer-=dt*1000;
+    if(e.timer<=0) return false;
+    // 그래비티웰: 소환수 끌어당김
+    if(e.type==='gravwell'){
+      s.creatures.forEach(c=>{
+        if(!c.alive || c.ownerId!==e.ownerId) return; // 적 소환수만
+        const dx=e.x-c.x, dy=e.y-c.y;
+        const d=Math.hypot(dx,dy);
+        if(d<e.range&&d>10){
+          c.x+=dx/d*e.pull*dt;
+          c.y+=dy/d*e.pull*dt;
+        }
+      });
+      s.creatures.forEach(c=>{
+        if(!c.alive || c.ownerId===e.ownerId) return;
+        const dx=e.x-c.x, dy=e.y-c.y;
+        const d=Math.hypot(dx,dy);
+        if(d<e.range&&d>10){
+          c.x+=dx/d*e.pull*dt;
+          c.y+=dy/d*e.pull*dt;
+        }
+      });
+    }
+    // 독구름: 안에 있는 소환수 지속 피해
+    if(e.type==='cloud_zone'){
+      e.tickTimer=(e.tickTimer||0)-dt*1000;
+      if(e.tickTimer<=0){
+        e.tickTimer=500; // 0.5초마다 틱
+        s.creatures.filter(c=>c.alive&&c.ownerId!==e.ownerId&&Math.hypot(c.x-e.x,c.y-e.y)<e.r)
+          .forEach(c=>{ c.takeDamage(e.dmg); spawnHitFX(c.x,c.y,'#44ff88'); });
+        // 플레이어 피해는 없음 (소환수 제압용)
+      }
+    }
+    // 충격파 확장
+    if(e.type==='shockwave_fx') e.r=e.maxR*(1-e.timer/e.maxTimer);
+    return true;
+  });
   // 소환수 처치 시 킬스트릭 마나 보너스
   s.creatures.forEach(c=>{
     if(!c.alive && !c._deathProcessed){
@@ -408,6 +523,86 @@ function pointToSegDist(px,py,ax,ay,bx,by){
   return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
 }
 
+// ── 스펠 결과 처리 (투사체 배열 or 이펙트 이벤트) ──
+function handleSpellResult(pp, caster){
+  if(!pp||!GS) return;
+  // 배열이면 투사체
+  if(Array.isArray(pp)){
+    GS.projectiles.push(...pp);
+    return;
+  }
+  // 객체 이벤트
+  const s=GS;
+  if(pp.type==='shield'){
+    spawnShieldFX(caster.x, caster.y, caster.color);
+    showNotif('🛡 방어막 활성!', '#4af0ff');
+    playSFX('mana',0.5);
+  }
+  else if(pp.type==='mirror'){
+    spawnShieldFX(caster.x, caster.y, '#c0e8ff');
+    showNotif('🪞 미러 활성!', '#c0e8ff');
+    playSFX('mana',0.4);
+  }
+  else if(pp.type==='blink'){
+    const sp=pp.sp;
+    // 자기 진영 내로 블링크 (facing 반대 방향)
+    const dist=sp.blinkDist||180;
+    caster.x += caster.facing * (-dist);  // 뒤로 이동
+    const a=s.arena;
+    // 진영 내로 클램프
+    if(caster.id===1){ caster.x=Math.max(a.x+caster.radius+4, Math.min(a.x+a.w/2-caster.radius-4, caster.x)); }
+    else { caster.x=Math.min(a.x+a.w-caster.radius-4, Math.max(a.x+a.w/2+caster.radius+4, caster.x)); }
+    caster.blinkTimer=400; // 무적
+    spawnBlinkFX(caster.x, caster.y, caster.color);
+    showNotif('💨 블링크!', '#88ffcc');
+    playSFX('mana',0.3);
+  }
+  else if(pp.type==='chain'){
+    fireChainLightning(caster, pp.sp);
+  }
+  else if(pp.type==='gravwell'){
+    spellEffects.push({
+      type:'gravwell', x:pp.x, y:pp.y, ownerId:caster.id,
+      timer:pp.sp.gravDur||3000, maxTimer:pp.sp.gravDur||3000,
+      range:pp.sp.gravRange||180, pull:pp.sp.gravPull||55,
+      color:pp.sp.color||'#b070ff'
+    });
+    showNotif('🌀 그래비티웰!', '#b070ff');
+    playSFX('hit',0.3);
+  }
+}
+
+// 체인 라이트닝 처리
+function fireChainLightning(caster, sp){
+  if(!GS) return;
+  const enemies=GS.creatures.filter(c=>c.alive&&c.ownerId!==caster.id);
+  if(!enemies.length){ showNotif('⚡ 타겟 없음','#ffee44'); return; }
+  const range=sp.chainRange||220;
+  const maxChain=sp.chainCount||3;
+  const dmg=sp.chainDmg||30;
+  let hit=[];
+  // 가장 가까운 적 소환수부터 시작
+  let nearest=enemies.reduce((a,b)=>Math.hypot(b.x-caster.x,b.y-caster.y)<Math.hypot(a.x-caster.x,a.y-caster.y)?b:a);
+  let cur=nearest; hit.push(cur);
+  cur.takeDamage(dmg); spawnHitFX(cur.x,cur.y,'#ffee44');
+  if(!cur.alive){spawnDeathFX(cur.x,cur.y,cur.color); showNotif(cur.def.emoji+' '+cur.def.name+' 처치!',cur.color);}
+  // 연쇄
+  for(let i=1;i<maxChain;i++){
+    const next=enemies.filter(c=>c.alive&&!hit.includes(c)&&Math.hypot(c.x-cur.x,c.y-cur.y)<range);
+    if(!next.length) break;
+    const nxt=next.reduce((a,b)=>Math.hypot(b.x-cur.x,b.y-cur.y)<Math.hypot(a.x-cur.x,a.y-cur.y)?b:a);
+    hit.push(nxt);
+    nxt.takeDamage(dmg); spawnHitFX(nxt.x,nxt.y,'#ffee44');
+    if(!nxt.alive){spawnDeathFX(nxt.x,nxt.y,nxt.color); showNotif(nxt.def.emoji+' '+nxt.def.name+' 처치!',nxt.color);}
+    cur=nxt;
+  }
+  // 연쇄 번개 시각 이펙트 저장
+  const pts=[caster, ...hit].map(e=>({x:e.x,y:e.y}));
+  spellEffects.push({type:'chain_fx', pts, timer:400, maxTimer:400, color:'#ffee44'});
+  showNotif('⚡ 체인 라이트닝 x'+hit.length+'!', '#ffee44');
+  shakeScreen(0.2); playSFX('hit',0.5);
+}
+
 function handleDeath(dead,killer){
   if(!GS||GS.gameOver)return;  // 중복 호출 완전 차단
   GS.gameOver=true;
@@ -453,7 +648,7 @@ function checkRoundEnd(){
     showOverlay('ROUND '+roundNum,'#f5c842',1.8);
     setTimeout(()=>{
       _showResultPending=false;
-      GS=createGS(); spawnPillars(GS);
+      spellEffects=[]; GS=createGS(); spawnPillars(GS);
       const td=document.getElementById('timer-disp');
       if(td){ td.textContent=settings.timerDuration; td.style.color=''; }
     }, 1800);
@@ -591,13 +786,13 @@ function _doRematch(){
   rematchReady=false; _showResultPending=false;
   totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
   applyLoadout(); rebuildActionBar();
-  GS=createGS(); spawnPillars(GS);
+  spellEffects=[]; GS=createGS(); spawnPillars(GS);
   if(netRole) GS.players[1].isAI=false;
   showScreen('game-screen'); resetGameHUD();
   paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);
 }
 function startGame(diff){
-  difficulty=diff; scores=[0,0]; roundNum=1; totalStats={kills:0,spells:0,summons:0};
+  difficulty=diff; scores=[0,0]; roundNum=1; totalStats={kills:0,spells:0,summons:0}; spellEffects=[];
   applyLoadout(); rebuildActionBar();
   _showResultPending=false; GS=createGS(); spawnPillars(GS); showScreen('game-screen'); resetGameHUD();
   paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);

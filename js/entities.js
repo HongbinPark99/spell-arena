@@ -11,20 +11,25 @@ class Player {
   constructor(id,x,y,color,glow,isAI){
     this.id=id; this.x=x; this.y=y; this.vx=0; this.vy=0;
     this.radius=44; this.speed=210;
-    this.hp=100; this.maxHp=100; this.mp=100; this.maxMp=100; this.mpRegen=14;
+    this.hp=100; this.maxHp=100; this.mp=80; this.maxMp=120; this.mpRegen=18;
     this.color=color; this.glow=glow;
     this.facing=id===1?1:-1;
     // Shoot direction — updated by movement keys. Default toward enemy.
     this.sdx=id===1?1:-1; this.sdy=0;
     this.selSpell=0; this.spellCDs=[0,0,0,0]; this.summonCDs=[0,0,0,0];
     this.swordActive=false; this.swordTimer=0; this.swordCD=0; this.swordAngle=0; this.swordSwingDir=0;
-    this.alive=true; this.stunTimer=0; this.slowTimer=0; this.flash=0; this.invincible=0;
+    this.alive=true; this.stunTimer=0; this.slowTimer=0; this.flash=0; this.invincible=0; this.markTimer=0;
     this.isAI=isAI||false; this.aiTimer=0; this.jx=0; this.jy=0;
     this.trail=[];
     this.spellsCast=0; this.summonsCast=0; this.cdBoost=0;
     // 궁극기
     this.ult=0; this.maxUlt=100; this.ultReady=false; this.ultCD=0;
     this.invasionTimer=0; this.inEnemyTerritory=false;
+    // 새 스펠 이펙트 필드
+    this.shieldTimer=0;   // 방패 활성 시간 (ms)
+    this.mirrorTimer=0;   // 미러 활성 시간 (ms)
+    this.blinkTimer=0;    // 블링크 무적 시간 (ms)
+    this.markTimer=0;     // 섀도우 마크 시간 (ms) — 받는 피해 증폭
   }
 
   update(dt,arena,opponent){
@@ -36,6 +41,10 @@ class Player {
     if(!this.ultReady){ this.ult=Math.min(this.maxUlt,this.ult+6*dt); if(this.ult>=this.maxUlt){this.ultReady=true; if(typeof showNotif==='function') showNotif(this.id===1?'⚡ 궁극기 준비!':'🔥 궁극기 준비!','#ffd700');} }
     const spd=this.speed*(this.slowTimer>0?.5:1)*dt;
     if(this.slowTimer>0)this.slowTimer-=dt;
+    if(this.shieldTimer>0)this.shieldTimer-=dt*1000;
+    if(this.mirrorTimer>0)this.mirrorTimer-=dt*1000;
+    if(this.blinkTimer>0)this.blinkTimer-=dt*1000;
+    if(this.markTimer>0)this.markTimer-=dt*1000;
     this.x+=this.vx*spd; this.y+=this.vy*spd;
     const pad=this.radius+arena.padding;
     this.x=Math.max(arena.x+pad,Math.min(arena.x+arena.w-pad,this.x));
@@ -122,7 +131,7 @@ class Player {
       if(this.mp>=sp.cost&&this.spellCDs[this.selSpell]<=0){
         this.sdx=dx/dist; this.sdy=dy/dist;
         const pp=this.castSpell();
-        if(pp&&GS)GS.projectiles.push(...pp);
+        if(pp&&GS) handleSpellResult(pp,this);
       }
     }
     if(Math.random()<.08)this.selSpell=Math.floor(Math.random()*4);
@@ -138,15 +147,45 @@ class Player {
     const sp=SPELLS[this.selSpell];
     if(this.mp<sp.cost||this.spellCDs[this.selSpell]>0)return null;
     this.mp-=sp.cost; this.spellCDs[this.selSpell]=sp.cd; this.spellsCast++;
-    // 항상 상대 진영 방향(facing)으로 발사
-    // facing: P1=+1(오른쪽), P2=-1(왼쪽)
-    const dir=this.facing; // +1 or -1
+    const dir=this.facing;
+
+    // ── 방어형: 즉발 버프 → 투사체 없음, 플래그 반환
+    if(sp.type==='shield'){
+      this.shieldTimer=sp.shieldDur||700;
+      return {type:'shield', player:this};
+    }
+    if(sp.type==='mirror'){
+      this.mirrorTimer=sp.mirrorDur||500;
+      return {type:'mirror', player:this};
+    }
+    if(sp.type==='blink'){
+      return {type:'blink', player:this, sp};
+    }
+
+    // ── 연쇄 번개: 투사체 없음, 이벤트 반환
+    if(sp.type==='chain'){
+      return {type:'chain', player:this, sp, x:this.x, y:this.y};
+    }
+
+    // ── 그래비티웰: 이벤트 반환
+    if(sp.type==='gravwell'){
+      return {type:'gravwell', player:this, sp, x:this.x, y:this.y};
+    }
+
+    // ── 독구름: 투사체로 날아가서 터짐
+    if(sp.type==='cloud'){
+      return [new Projectile(this.x,this.y,dir*sp.speed,0,sp,this.id)];
+    }
+
+    // ── 노바형
     if(sp.type==='nova'){
       return Array.from({length:sp.count},(_,i)=>{
         const a=(i/sp.count)*Math.PI*2;
         return new Projectile(this.x,this.y,Math.cos(a)*sp.speed,Math.sin(a)*sp.speed,sp,this.id);
       });
     }
+
+    // ── 기본 투사체
     return [new Projectile(this.x,this.y,dir*sp.speed,0,sp,this.id)];
   }
 
@@ -670,6 +709,7 @@ class Creature {
     if(this.invincible>0)this.invincible-=dt;
     if(this.atkTimer>0)this.atkTimer-=dt*1000;
     if(this.shootTimer>0)this.shootTimer-=dt*1000;
+    if(this.markTimer>0)this.markTimer-=dt*1000;
 
     const enemyPlayer=players.find(p=>p.id!==this.ownerId&&p.alive);
     const enemyCreatures=creatures.filter(c=>c.ownerId!==this.ownerId&&c.alive);

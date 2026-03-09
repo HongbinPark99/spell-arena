@@ -35,7 +35,7 @@ document.addEventListener('keydown',e=>{
   if(spellMap[e.key]!==undefined){
     p1.selSpell=spellMap[e.key];
     const pp=p1.castSpell();
-    if(pp){GS.projectiles.push(...pp); playSFXForSpell(p1.selSpell);}
+    if(pp){handleSpellResult(pp,p1); playSFXForSpell(p1.selSpell);}
     else showNotif('마나 부족 / 쿨다운','#ff6644');
     return;
   }
@@ -65,7 +65,7 @@ function mobSpell(idx){
     return;
   }
   const p=GS.players[0]; p.selSpell=idx;
-  const pp=p.castSpell(); if(pp){GS.projectiles.push(...pp); playSFXForSpell(idx);}
+  const pp=p.castSpell(); if(pp){handleSpellResult(pp,p); playSFXForSpell(idx);}
 }
 function mobSummon(idx){
   if(!GS||!GS.started)return;
