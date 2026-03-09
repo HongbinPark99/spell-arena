@@ -44,13 +44,14 @@ function recalcArena(){
 }
 
 function tick(ts){
-  const dt=Math.min((ts-lastTime)/1000,.05); lastTime=ts;
-  if(!paused&&GS&&!GS.gameOver) gameUpdate(dt);
-  else if(!paused&&GS&&GS.gameOver){
-    // gameOver 후에도 파티클 계속 업데이트 (죽음 이펙트 재생)
-    GS.particles.forEach(p=>p.update(dt)); GS.particles=GS.particles.filter(p=>p.alive);
-  }
-  gameRender();
+  try{
+    const dt=Math.min((ts-lastTime)/1000,.05); lastTime=ts;
+    if(!paused&&GS&&!GS.gameOver) gameUpdate(dt);
+    else if(!paused&&GS&&GS.gameOver){
+      if(GS.particles){ GS.particles.forEach(p=>p.update(dt)); GS.particles=GS.particles.filter(p=>p.alive); }
+    }
+    gameRender();
+  }catch(e){ console.error('tick error',e); }
   rafId=requestAnimationFrame(tick);
 }
 
@@ -274,7 +275,7 @@ function gameUpdate(dt){
       s.gameOver=true;
       if(netRole==='host') netSyncState();
       showOverlay('DRAW!','#f5c842',2.4);
-      setTimeout(showResult,2800);
+      setTimeout(checkRoundEnd,2800);
     } else if(!p1c.alive&&p2c.alive){
       handleDeath(p1c, p2c);
     } else if(!p2c.alive&&p1c.alive){
@@ -416,7 +417,7 @@ function handleDeath(dead,killer){
   if(netRole==='host') netSyncState();
   const myId=netRole==='join'?2:1;
   showOverlay(killer.id===myId?'YOU WIN!':'DEFEATED!',killer.id===myId?'#4af0ff':'#ff6b35',2.4);
-  setTimeout(showResult,2800);
+  setTimeout(checkRoundEnd,2800);
 }
 
 function endRound(){
@@ -430,14 +431,46 @@ function endRound(){
   const myId=netRole==='join'?2:1;
   if(winner){scores[winner.id-1]++; showOverlay(winner.id===myId?'TIME UP — WIN!':'TIME UP — LOSE!',winner.id===myId?'#4af0ff':'#ff6b35',2.4);}
   else showOverlay('TIME UP — DRAW!','#f5c842',2.4);
-  setTimeout(showResult,2800);
+  setTimeout(checkRoundEnd,2800);
+}
+
+// ── 3라운드 매치 ──────────────────────────────
+const MAX_ROUNDS = 3;
+const WIN_ROUNDS = 2; // 2선승
+
+function checkRoundEnd(){
+  if(_showResultPending) return;
+  // 2선승 달성 여부 확인
+  const matchOver = scores[0]>=WIN_ROUNDS || scores[1]>=WIN_ROUNDS || roundNum>=MAX_ROUNDS;
+  if(matchOver){
+    showResult();
+  } else {
+    // 다음 라운드
+    roundNum++;
+    const el=document.getElementById('round-lbl');
+    if(el) el.textContent='ROUND '+roundNum;
+    _showResultPending=false;
+    showOverlay('ROUND '+roundNum,'#f5c842',1.8);
+    setTimeout(()=>{
+      _showResultPending=false;
+      GS=createGS(); spawnPillars(GS);
+      const td=document.getElementById('timer-disp');
+      if(td){ td.textContent=settings.timerDuration; td.style.color=''; }
+    }, 1800);
+  }
 }
 
 let _showResultPending=false;
 function showResult(){
   if(_showResultPending)return; _showResultPending=true;
-  cancelAnimationFrame(rafId); rafId=null;
-  showScreen('result-screen');
+  // 루프 완전 정지
+  if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  // 직접 DOM 조작으로 확실하게 result 화면 표시
+  document.querySelectorAll('.screen').forEach(el=>el.style.display='none');
+  const gw=document.getElementById('game-screen');
+  const ro=document.getElementById('result-screen');
+  if(gw) gw.style.display='block';
+  if(ro){ ro.style.display='flex'; ro.style.zIndex='9999'; }
 
   const online=!!netRole;
   const btnLo=document.getElementById('btn-loadout'), btnDiff=document.getElementById('btn-diff');
@@ -555,10 +588,10 @@ function rematch(){
   _doRematch();
 }
 function _doRematch(){
-  rematchReady=false;
+  rematchReady=false; _showResultPending=false;
   totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
   applyLoadout(); rebuildActionBar();
-  GS=createGS();
+  GS=createGS(); spawnPillars(GS);
   if(netRole) GS.players[1].isAI=false;
   showScreen('game-screen'); resetGameHUD();
   paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);

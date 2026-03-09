@@ -51,6 +51,10 @@ const SPELL_POOL = [
   { id:'shadow',   name:'섀도우볼트',  emoji:'🌑', color:'#8822cc', cost:22, cd:800,  dmg:32, speed:6,   radius:9,  type:'proj' },
   { id:'meteor',   name:'메테오',      emoji:'☄️', color:'#ff8800', cost:50, cd:2800, dmg:65, speed:9,   radius:16, type:'proj' },
   { id:'icespear', name:'아이스랜스',  emoji:'🧊', color:'#aaeeff', cost:30, cd:1000, dmg:35, speed:11,  radius:7,  type:'proj', slow:true, pierce:true },
+  { id:'poison',   name:'포이즌',      emoji:'☠️', color:'#44ff88', cost:25, cd:900,  dmg:12, speed:5,   radius:10, type:'proj', dot:true },
+  { id:'arcane',   name:'아케인볼트',  emoji:'🔵', color:'#88ccff', cost:18, cd:500,  dmg:22, speed:8,   radius:8,  type:'proj' },
+  { id:'thunder',  name:'썬더클랩',    emoji:'🌩', color:'#fff176', cost:35, cd:1800, dmg:38, speed:0,   radius:80, type:'nova', count:1 },
+  { id:'darkfire', name:'다크파이어',  emoji:'🖤', color:'#cc44ff', cost:28, cd:1000, dmg:30, speed:7,   radius:11, type:'proj', pierce:true },
 ];
 
 // ═══ 소환수 풀 (6종) ═══
@@ -61,6 +65,8 @@ const SUMMON_POOL = [
   { id:'wisp',    name:'Wisp',    emoji:'🔮', color:'#ff88cc', glow:'#ff44aa', cost:35, cd:3500, hp:40,  speed:220, radius:20, dmg:7,  atkRange:45, atkCd:500,  sightRange:420, shootRange:280, shootCd:1500, shootDmg:14, shootSpd:7,  shootR:9, pierce:true },
   { id:'phoenix', name:'Phoenix', emoji:'🦅', color:'#ffaa00', glow:'#ff6600', cost:60, cd:6000, hp:90,  speed:230, radius:26, dmg:11, atkRange:50, atkCd:700,  sightRange:400, shootRange:240, shootCd:1600, shootDmg:13, shootSpd:7,  shootR:8 },
   { id:'goliath', name:'Goliath', emoji:'👾', color:'#44ff88', glow:'#00cc44', cost:80, cd:9000, hp:300, speed:90,  radius:42, dmg:25, atkRange:70, atkCd:1400, sightRange:300, shootRange:0,   shootCd:99999,shootDmg:0,  shootSpd:0,  shootR:0 },
+  { id:'serpent', name:'Serpent', emoji:'🐍', color:'#88ff44', glow:'#44cc00', cost:45, cd:5000, hp:70,  speed:240, radius:20, dmg:12, atkRange:48, atkCd:600,  sightRange:420, shootRange:260, shootCd:1800, shootDmg:16, shootSpd:6.5, shootR:8, slow:true },
+  { id:'golem2',  name:'IceGolem',emoji:'🧊', color:'#aaddff', glow:'#66aaff', cost:65, cd:7500, hp:160, speed:120, radius:30, dmg:20, atkRange:60, atkCd:1100, sightRange:300, shootRange:0,   shootCd:99999,shootDmg:0,  shootSpd:0,  shootR:0, slow:true },
 ];
 
 // 플레이어 로드아웃 (기본값 = v13과 동일한 4스펠 4소환)

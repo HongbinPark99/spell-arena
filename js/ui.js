@@ -177,3 +177,82 @@ function assignItem(type,id){
   _pickType=null; _pickIdx=-1;
   document.getElementById('lo-hint').textContent='슬롯 클릭 후 선택';
 }
+
+// ── 드래프트 페이즈 ──────────────────────────────
+let draftPickedSpells = [];
+let draftPickedSummons = [];
+
+function openDraft() {
+  draftPickedSpells = [];
+  draftPickedSummons = [];
+  // 랜덤으로 스펠 5개, 소환수 5개 제시
+  const spellOpts = [...SPELL_POOL].sort(()=>Math.random()-.5).slice(0,5);
+  const summonOpts = [...SUMMON_POOL].sort(()=>Math.random()-.5).slice(0,5);
+
+  const spellDiv = document.getElementById('draft-spells');
+  const summonDiv = document.getElementById('draft-summons');
+  if(!spellDiv||!summonDiv) return;
+  spellDiv.innerHTML = '';
+  summonDiv.innerHTML = '';
+
+  spellOpts.forEach(sp => {
+    const btn = document.createElement('button');
+    btn.className = 'lo-pool-item';
+    btn.innerHTML = `<span style="font-size:1.4em">${sp.emoji}</span><span>${sp.name}</span><span style="color:var(--dim);font-size:.65rem">MP:${sp.cost} DMG:${sp.dmg}</span>`;
+    btn.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 12px;min-width:80px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-family:Cinzel,serif;font-size:.65rem;transition:all .2s';
+    btn.onclick = () => toggleDraftPick('spell', sp.id, btn);
+    spellDiv.appendChild(btn);
+  });
+
+  summonOpts.forEach(sm => {
+    const btn = document.createElement('button');
+    btn.className = 'lo-pool-item';
+    btn.innerHTML = `<span style="font-size:1.4em">${sm.emoji}</span><span>${sm.name}</span><span style="color:var(--dim);font-size:.65rem">MP:${sm.cost} HP:${sm.hp}</span>`;
+    btn.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 12px;min-width:80px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-family:Cinzel,serif;font-size:.65rem;transition:all .2s';
+    btn.onclick = () => toggleDraftPick('summon', sm.id, btn);
+    summonDiv.appendChild(btn);
+  });
+
+  updateDraftConfirmBtn();
+  showScreen('draft-screen');
+}
+
+function toggleDraftPick(type, id, btn) {
+  const arr = type==='spell' ? draftPickedSpells : draftPickedSummons;
+  const max = 2;
+  const idx = arr.indexOf(id);
+  if(idx >= 0) {
+    arr.splice(idx,1);
+    btn.style.border = '1px solid rgba(255,255,255,.15)';
+    btn.style.background = 'rgba(255,255,255,.05)';
+  } else {
+    if(arr.length >= max) return; // 이미 2개 선택됨
+    arr.push(id);
+    btn.style.border = '1px solid #f5c842';
+    btn.style.background = 'rgba(245,200,66,.15)';
+  }
+  updateDraftConfirmBtn();
+}
+
+function updateDraftConfirmBtn() {
+  const btn = document.getElementById('draft-confirm-btn');
+  if(!btn) return;
+  const ready = draftPickedSpells.length===2 && draftPickedSummons.length===2;
+  btn.disabled = !ready;
+  btn.style.opacity = ready ? '1' : '0.4';
+}
+
+function confirmDraft() {
+  if(draftPickedSpells.length!==2 || draftPickedSummons.length!==2) return;
+  // 현재 로드아웃에서 랜덤 2개 슬롯을 드래프트 픽으로 교체
+  const sSlots = [0,1,2,3].sort(()=>Math.random()-.5).slice(0,2);
+  const mSlots = [0,1,2,3].sort(()=>Math.random()-.5).slice(0,2);
+  sSlots.forEach((slot,i) => { playerLoadout.spells[slot] = draftPickedSpells[i]; });
+  mSlots.forEach((slot,i) => { playerLoadout.summons[slot] = draftPickedSummons[i]; });
+  applyLoadout();
+  showScreen('diff-screen');
+}
+
+function skipDraft() {
+  showScreen('diff-screen');
+}

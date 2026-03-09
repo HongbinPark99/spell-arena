@@ -724,6 +724,7 @@ class Creature {
         if(dist < meleeDist && this.atkTimer<=0){
           this.atkTimer=this.def.atkCd;
           if(target.takeDamage) target.takeDamage(this.def.dmg);
+          if(this.def.slow && target.slowTimer!==undefined) target.slowTimer=1.5;
           if(typeof GS!=='undefined'&&GS){
             const mx=this.x+dx/dist*this.radius, my=this.y+dy/dist*this.radius;
             for(let i=0;i<6;i++){
@@ -788,8 +789,10 @@ class Creature {
       case'Golem':   this._drawGolem(ctx,R,fl);   break;
       case'Wisp':    this._drawWisp(ctx,R,fl);    break;
       case'Phoenix': this._drawPhoenix(ctx,R,fl); break;
-      case'Goliath': this._drawGoliath(ctx,R,fl); break;
-      default:       this._drawWisp(ctx,R,fl);
+      case'Goliath':  this._drawGoliath(ctx,R,fl);  break;
+      case'Serpent':  this._drawSerpent(ctx,R,fl);  break;
+      case'IceGolem': this._drawIceGolem(ctx,R,fl); break;
+      default:        this._drawWisp(ctx,R,fl);
     }
     ctx.restore();
 
@@ -1529,6 +1532,75 @@ class Creature {
     ctx.fillStyle=fl?'#ccc':neon+'88';
     for(let k=-3;k<=3;k++){ ctx.beginPath(); ctx.rect(k*R*.1-R*.04,-R*1.1,R*.08,R*.1); ctx.fill(); }
   }
+
+
+  // ══ SERPENT — 독뱀 ════════════════════════
+  _drawSerpent(ctx,R,fl){
+    const T=Date.now()*.004;
+    const green=fl?'#fff':'#88ff44', dk='#1a3300', bright=fl?'#eee':'#ccff88';
+    if(!fl){ ctx.shadowBlur=18; ctx.shadowColor='#44ff00'; }
+    // 물결치는 몸통 (4마디)
+    ctx.lineWidth=R*.7; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.strokeStyle=green;
+    ctx.beginPath();
+    ctx.moveTo(-R*.8, 0);
+    for(let i=0;i<8;i++){
+      const ox=-R*.8+i*(R*1.6/7);
+      const oy=Math.sin(T*2+i*.9)*R*.35;
+      ctx.lineTo(ox,oy);
+    }
+    ctx.stroke();
+    // 비늘 무늬
+    ctx.strokeStyle=dk; ctx.lineWidth=R*.12;
+    for(let i=1;i<7;i++){
+      const ox=-R*.8+i*(R*1.6/7);
+      const oy=Math.sin(T*2+i*.9)*R*.35;
+      ctx.beginPath(); ctx.arc(ox,oy,R*.18,0,Math.PI*2); ctx.stroke();
+    }
+    // 머리
+    ctx.fillStyle=green;
+    ctx.beginPath(); ctx.ellipse(R*.8,Math.sin(T*2+7*.9)*R*.35,R*.38,R*.26,Math.sin(T)*0.2,0,Math.PI*2);
+    ctx.fill(); ctx.strokeStyle=bright; ctx.lineWidth=2; ctx.stroke();
+    // 눈
+    ctx.fillStyle=fl?'#888':'#ff4400';
+    ctx.beginPath(); ctx.arc(R*.92,Math.sin(T*2+7*.9)*R*.35-R*.08,R*.07,0,Math.PI*2); ctx.fill();
+    // 혀
+    if(!fl){ ctx.strokeStyle='#ff4444'; ctx.lineWidth=2;
+      const hy=Math.sin(T*2+7*.9)*R*.35;
+      ctx.beginPath(); ctx.moveTo(R*1.18,hy); ctx.lineTo(R*1.38,hy-R*.12); ctx.moveTo(R*1.18,hy); ctx.lineTo(R*1.38,hy+R*.12); ctx.stroke(); }
+    ctx.shadowBlur=0;
+  }
+
+  // ══ ICE GOLEM — 얼음 골렘 ═════════════════
+  _drawIceGolem(ctx,R,fl){
+    const T=Date.now()*.002;
+    const ice=fl?'#fff':'#aaddff', dk=fl?'#aaa':'#224466', bright=fl?'#eee':'#ddf4ff';
+    if(!fl){ ctx.shadowBlur=22; ctx.shadowColor='#66ccff'; }
+    // 몸통 (육각 얼음 결정)
+    const bg=ctx.createRadialGradient(0,0,R*.1,0,0,R*.9);
+    bg.addColorStop(0,bright); bg.addColorStop(.5,ice); bg.addColorStop(1,dk);
+    ctx.beginPath();
+    for(let i=0;i<6;i++){ const a=i*Math.PI/3+T*.3; ctx.lineTo(Math.cos(a)*R*.9,Math.sin(a)*R*.9); }
+    ctx.closePath(); ctx.fillStyle=bg; ctx.fill(); ctx.strokeStyle=bright; ctx.lineWidth=2.5; ctx.stroke();
+    // 크랙 라인
+    ctx.strokeStyle=dk+'88'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(-R*.3,-R*.7); ctx.lineTo(R*.1,R*.2); ctx.lineTo(-R*.1,R*.6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(R*.4,-R*.5); ctx.lineTo(R*.2,R*.3); ctx.stroke();
+    // 눈 (파란 글로우)
+    const eyeY=-R*.18;
+    for(let s of[-1,1]){
+      if(!fl){ ctx.shadowBlur=16; ctx.shadowColor='#00aaff'; }
+      ctx.fillStyle=fl?'#88aacc':'#00ccff';
+      ctx.beginPath(); ctx.ellipse(s*R*.28,eyeY,R*.12,R*.09,0,0,Math.PI*2); ctx.fill();
+    }
+    // 중앙 얼음 코어
+    if(!fl){ ctx.shadowBlur=30; ctx.shadowColor='#ffffff'; }
+    const cg=ctx.createRadialGradient(0,R*.1,0,0,R*.1,R*.28);
+    cg.addColorStop(0,'#fff'); cg.addColorStop(.4,'#aaddff'); cg.addColorStop(1,'transparent');
+    ctx.beginPath(); ctx.arc(0,R*.1,R*.28,0,Math.PI*2); ctx.fillStyle=cg; ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
 }
 
 // ─── PILLAR — 파괴 가능한 마법 기둥 ──────────────

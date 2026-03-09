@@ -4,27 +4,27 @@ function gameRender(){
   ctx.clearRect(0,0,W,H);
   if(!GS) return;
   const s=GS;
-  ctx.save();
-  if(s.shakeX||s.shakeY) ctx.translate(s.shakeX, s.shakeY);
-
-  drawArena(s.arena, s.players);
-  if(s.pillars) s.pillars.forEach(pl=>pl.draw(ctx));
-  s.orbs.forEach(o=>o.draw(ctx));
-  s.particles.forEach(p=>p.draw(ctx));
-  s.creatures.forEach(c=>c.draw(ctx));
-  s.players.forEach(p=>p.draw(ctx));
-  s.projectiles.forEach(pr=>pr.draw(ctx));
-
-  if(!s.started){
-    const t=Math.ceil(s.startTimer);
+  try {
     ctx.save();
-    ctx.font=`bold ${130-(s.startTimer%1)*45}px 'Cinzel Decorative',serif`;
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillStyle=`rgba(245,200,66,${s.startTimer%1})`; ctx.shadowBlur=60; ctx.shadowColor='#f5c842';
-    ctx.fillText(t>0?t:'GO!',W/2,H/2);
+    if(s.shakeX||s.shakeY) ctx.translate(s.shakeX, s.shakeY);
+    drawArena(s.arena, s.players);
+    if(s.pillars) s.pillars.forEach(pl=>{ try{pl.draw(ctx);}catch(e){} });
+    if(s.orbs) s.orbs.forEach(o=>{ try{o.draw(ctx);}catch(e){} });
+    if(s.particles) s.particles.forEach(p=>{ try{p.draw(ctx);}catch(e){} });
+    if(s.creatures) s.creatures.forEach(c=>{ try{c.draw(ctx);}catch(e){} });
+    if(s.players) s.players.forEach(p=>{ try{p.draw(ctx);}catch(e){} });
+    if(s.projectiles) s.projectiles.forEach(pr=>{ try{pr.draw(ctx);}catch(e){} });
+    if(!s.started){
+      const t=Math.ceil(s.startTimer);
+      ctx.save();
+      ctx.font=`bold ${130-(s.startTimer%1)*45}px 'Cinzel Decorative',serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle=`rgba(245,200,66,${s.startTimer%1})`; ctx.shadowBlur=60; ctx.shadowColor='#f5c842';
+      ctx.fillText(t>0?t:'GO!',W/2,H/2);
+      ctx.restore();
+    }
     ctx.restore();
-  }
-  ctx.restore();
+  } catch(e){ console.error('render error',e); try{ctx.restore();}catch(_){} }
 }
 
 function drawArena(a, players){
