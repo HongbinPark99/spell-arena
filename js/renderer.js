@@ -6,7 +6,7 @@ function gameRender(){
   const s=GS;
   try {
     ctx.save();
-    if(s.shakeX||s.shakeY) ctx.translate(s.shakeX, s.shakeY);
+    // shake는 canvas CSS transform으로 처리 (아래 gameRender 끝에서)
     drawArena(s.arena, s.players);
     if(s.pillars) s.pillars.forEach(pl=>{ try{pl.draw(ctx);}catch(e){} });
     if(s.orbs) s.orbs.forEach(o=>{ try{o.draw(ctx);}catch(e){} });
@@ -29,6 +29,12 @@ function gameRender(){
     }
     ctx.restore();
   } catch(e){ console.error('render error',e); try{ctx.restore();}catch(_){} }
+  // 화면 shake: canvas CSS transform (클리핑 없이 흔들림)
+  if(GS && (GS.shakeX||GS.shakeY)){
+    canvas.style.transform = `translate(${GS.shakeX}px,${GS.shakeY}px)`;
+  } else {
+    canvas.style.transform = '';
+  }
 }
 
 function drawSpellEffects(ctx){

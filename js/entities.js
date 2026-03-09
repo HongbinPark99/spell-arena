@@ -266,11 +266,11 @@ class Player {
       ctx.save(); ctx.translate(x,y); ctx.rotate(this.swordAngle);
       ctx.shadowBlur=22; ctx.shadowColor=this.color;
       // Blade
-      const sg=ctx.createLinearGradient(0,0,f*58,0);
+      const sg=ctx.createLinearGradient(0,0,f*116,0);
       sg.addColorStop(0,this.color); sg.addColorStop(.5,'#ffffff'); sg.addColorStop(1,this.color+'44');
-      ctx.beginPath(); ctx.moveTo(f*6,-1); ctx.lineTo(f*58,-1);
+      ctx.beginPath(); ctx.moveTo(f*6,-1); ctx.lineTo(f*116,-1);
       ctx.strokeStyle=sg; ctx.lineWidth=5; ctx.lineCap='round'; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(f*6,1); ctx.lineTo(f*58,1);
+      ctx.beginPath(); ctx.moveTo(f*6,1); ctx.lineTo(f*116,1);
       ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=2; ctx.stroke();
       // Guard
       ctx.beginPath(); ctx.moveTo(f*11,-12); ctx.lineTo(f*11,12);

@@ -169,7 +169,7 @@ function gameUpdate(dt){
     if(netConn){try{netConn.send({type:'input',vx:p2.vx,vy:p2.vy,sdx:p2.sdx,sdy:p2.sdy});}catch(e){}}
     // 파티클/shake 로컬
     s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
-    if(s.shakeT>0){s.shakeT-=dt; const m=s.shakeT*14; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m;}
+    if(s.shakeT>0){s.shakeT-=dt; const m=s.shakeT*7; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m;}
     else{s.shakeX=s.shakeY=0;}
     updateTerritoryWarning(s.players[1]);
     updateHUD();
@@ -281,8 +281,8 @@ function gameUpdate(dt){
     if(!atk.swordActive)return;
     // 검 선분: 플레이어 중심(base)에서 tip까지
     const bx=atk.x, by=atk.y;
-    const tx=atk.x+Math.cos(atk.swordAngle)*55*atk.facing;
-    const ty=atk.y+Math.sin(atk.swordAngle)*55;
+    const tx=atk.x+Math.cos(atk.swordAngle)*110*atk.facing;
+    const ty=atk.y+Math.sin(atk.swordAngle)*110;
     s.players.forEach(tgt=>{
       if(tgt.id===atk.id||!tgt.alive)return;
       if(!s.gameOver&&pointToSegDist(tgt.x,tgt.y,bx,by,tx,ty)<tgt.radius+14){
@@ -444,7 +444,7 @@ function gameUpdate(dt){
   });
 
   s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
-  if(s.shakeT>0){s.shakeT-=dt; const m=s.shakeT*14; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m;}
+  if(s.shakeT>0){s.shakeT-=dt; const m=s.shakeT*7; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m;}
   else{s.shakeX=s.shakeY=0;}
 
   // HOST → JOIN 동기화
