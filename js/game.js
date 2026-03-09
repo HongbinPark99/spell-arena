@@ -180,7 +180,7 @@ function gameUpdate(dt){
       if(!p.alive)return;
       const own=typeof pr.ownerId==='number'?pr.ownerId:parseInt(pr.ownerId);
       if(own===p.id)return;
-      if(Math.hypot(pr.x-p.x,pr.y-p.y)<p.radius+pr.radius){
+      if(!s.gameOver&&Math.hypot(pr.x-p.x,pr.y-p.y)<p.radius+pr.radius){
         const pd=calcDmg(pr.spell.dmg,pr.x,pr.y); p.takeDamage(pd);
         if(pr.spell.slow)p.slowTimer=2.2;
         spawnHitFX(pr.x,pr.y,pr.spell.color); shakeScreen(.14); playSFX('hit',0.35);
@@ -209,7 +209,7 @@ function gameUpdate(dt){
     const ty=atk.y+Math.sin(atk.swordAngle)*55;
     s.players.forEach(tgt=>{
       if(tgt.id===atk.id||!tgt.alive)return;
-      if(pointToSegDist(tgt.x,tgt.y,bx,by,tx,ty)<tgt.radius+14){
+      if(!s.gameOver&&pointToSegDist(tgt.x,tgt.y,bx,by,tx,ty)<tgt.radius+14){
         const sd=calcDmg(32,tx,ty); tgt.takeDamage(sd); atk.swordActive=false;
         spawnHitFX(tx,ty,atk.color); shakeScreen(.28); playSFX('swordHit',0.6);
         if(!tgt.alive)handleDeath(tgt,atk);
@@ -275,9 +275,9 @@ function gameUpdate(dt){
       if(netRole==='host') netSyncState();
       showOverlay('DRAW!','#f5c842',2.4);
       setTimeout(showResult,2800);
-    } else if(!p1c.alive){
+    } else if(!p1c.alive&&p2c.alive){
       handleDeath(p1c, p2c);
-    } else if(!p2c.alive){
+    } else if(!p2c.alive&&p1c.alive){
       handleDeath(p2c, p1c);
     }
   }
@@ -408,11 +408,11 @@ function pointToSegDist(px,py,ax,ay,bx,by){
 }
 
 function handleDeath(dead,killer){
+  if(!GS||GS.gameOver)return;  // 중복 호출 완전 차단
+  GS.gameOver=true;
   spawnDeathFX(dead.x,dead.y,dead.color); shakeScreen(.5); playSFX('death',0.7);
   scores[killer.id-1]++;
   totalStats.kills++; totalStats.spells+=GS.players[0].spellsCast; totalStats.summons+=GS.players[0].summonsCast;
-  GS.gameOver=true;
-  // HOST면 즉시 JOIN에게 gameOver 상태 전송
   if(netRole==='host') netSyncState();
   const myId=netRole==='join'?2:1;
   showOverlay(killer.id===myId?'YOU WIN!':'DEFEATED!',killer.id===myId?'#4af0ff':'#ff6b35',2.4);
@@ -433,7 +433,9 @@ function endRound(){
   setTimeout(showResult,2800);
 }
 
+let _showResultPending=false;
 function showResult(){
+  if(_showResultPending)return; _showResultPending=true;
   cancelAnimationFrame(rafId); rafId=null;
   showScreen('result-screen');
 
@@ -564,7 +566,7 @@ function _doRematch(){
 function startGame(diff){
   difficulty=diff; scores=[0,0]; roundNum=1; totalStats={kills:0,spells:0,summons:0};
   applyLoadout(); rebuildActionBar();
-  GS=createGS(); spawnPillars(GS); showScreen('game-screen'); resetGameHUD();
+  _showResultPending=false; GS=createGS(); spawnPillars(GS); showScreen('game-screen'); resetGameHUD();
   paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);
 }
 function resetGameHUD(){
