@@ -17,7 +17,7 @@ function createGS(){
       new Player(2, cx+arena.w/4, cy, '#ff6b35','#ff4400', true),   // P2 항상 오른쪽
     ],
     projectiles:[],creatures:[],orbs:[],particles:[],
-    timer:settings.timerDuration,timerAcc:0,orbSpawnTimer:3.5,
+    timer:settings.timerDuration,timerAcc:0,orbSpawnTimer:3.5,goldenOrbTimer:28,
     shakeX:0,shakeY:0,shakeT:0,
     gameOver:false,started:false,startTimer:2.8,
   };
@@ -39,6 +39,19 @@ function tick(ts){
   }
   gameRender();
   rafId=requestAnimationFrame(tick);
+}
+
+// ── 크리티컬 히트 (10% 확률, 1.8배 데미지) ──
+function calcDmg(dmg, x, y){
+  if(Math.random()<0.10){
+    const cd=Math.round(dmg*1.8);
+    // 크리티컬 텍스트 파티클
+    if(GS) for(let i=0;i<8;i++){const a=Math.random()*Math.PI*2,v=4+Math.random()*4; GS.particles.push(new Particle(x+(Math.random()-.5)*20,y+(Math.random()-.5)*20,'#ffee00',Math.cos(a)*v,Math.sin(a)*v-2,4+Math.random()*3,.6));}
+    showNotif('💥 CRITICAL! ×1.8','#ffee00');
+    shakeScreen(0.25);
+    return cd;
+  }
+  return dmg;
 }
 
 function gameUpdate(dt){
@@ -111,7 +124,7 @@ function gameUpdate(dt){
       const own=typeof pr.ownerId==='number'?pr.ownerId:parseInt(pr.ownerId);
       if(own===p.id)return;
       if(Math.hypot(pr.x-p.x,pr.y-p.y)<p.radius+pr.radius){
-        p.takeDamage(pr.spell.dmg);
+        const pd=calcDmg(pr.spell.dmg,pr.x,pr.y); p.takeDamage(pd);
         if(pr.spell.slow)p.slowTimer=2.2;
         spawnHitFX(pr.x,pr.y,pr.spell.color); shakeScreen(.14); playSFX('hit',0.35);
         if(!p.alive)handleDeath(p, p.id===1?p2:p1);
@@ -123,7 +136,7 @@ function gameUpdate(dt){
       const fromOwner=typeof pr.ownerId==='number'?pr.ownerId===c.ownerId:pr.ownerId.startsWith(String(c.ownerId));
       if(fromOwner)return;
       if(Math.hypot(pr.x-c.x,pr.y-c.y)<c.radius+pr.radius){
-        c.takeDamage(pr.spell.dmg); spawnHitFX(pr.x,pr.y,pr.spell.color); playSFX('hit',0.25);
+        const cd=calcDmg(pr.spell.dmg,pr.x,pr.y); c.takeDamage(cd); spawnHitFX(pr.x,pr.y,pr.spell.color); playSFX('hit',0.25);
         if(!c.alive){spawnDeathFX(c.x,c.y,c.color); showNotif(c.def.emoji+' '+c.def.name+' 처치!',c.color); playSFX('death',0.5);}
         if(!pr.spell.pierce)pr.alive=false;
       }
@@ -140,7 +153,7 @@ function gameUpdate(dt){
     s.players.forEach(tgt=>{
       if(tgt.id===atk.id||!tgt.alive)return;
       if(pointToSegDist(tgt.x,tgt.y,bx,by,tx,ty)<tgt.radius+14){
-        tgt.takeDamage(32); atk.swordActive=false;
+        const sd=calcDmg(32,tx,ty); tgt.takeDamage(sd); atk.swordActive=false;
         spawnHitFX(tx,ty,atk.color); shakeScreen(.28); playSFX('swordHit',0.6);
         if(!tgt.alive)handleDeath(tgt,atk);
       }
@@ -148,7 +161,7 @@ function gameUpdate(dt){
     s.creatures.forEach(c=>{
       if(c.ownerId===atk.id||!c.alive)return;
       if(pointToSegDist(c.x,c.y,bx,by,tx,ty)<c.radius+14){
-        c.takeDamage(40); atk.swordActive=false;
+        const scd=calcDmg(40,tx,ty); c.takeDamage(scd); atk.swordActive=false;
         spawnHitFX(tx,ty,atk.color); playSFX('swordHit',0.5);
         if(!c.alive){spawnDeathFX(c.x,c.y,c.color); showNotif(c.def.emoji+' '+c.def.name+' 처치!',c.color); playSFX('death',0.5);}
       }
@@ -156,6 +169,15 @@ function gameUpdate(dt){
   });
 
   s.creatures.forEach(c=>c.update(dt,s.arena,s.players,s.creatures,s.projectiles));
+  // 소환수 처치 시 킬스트릭 마나 보너스
+  s.creatures.forEach(c=>{
+    if(!c.alive && !c._deathProcessed){
+      c._deathProcessed=true;
+      const killer=s.players.find(p=>p.id!==c.ownerId&&p.alive);
+      if(killer){ killer.mp=Math.min(killer.maxMp,killer.mp+15); showNotif('+15 Mana (킬!)', '#ffcc44'); }
+      totalStats.kills=(totalStats.kills||0)+1;
+    }
+  });
   s.creatures=s.creatures.filter(c=>c.alive);
 
   // ── invasion(선 침범) 사망 체크 ──
@@ -192,6 +214,32 @@ function gameUpdate(dt){
     });
   });
   s.orbs=s.orbs.filter(o=>o.alive);
+
+  // ── 골든 오브 이벤트 (28초마다 중앙 등장) ──
+  s.goldenOrbTimer-=dt;
+  if(s.goldenOrbTimer<=0){
+    s.goldenOrbTimer=28;
+    const a=s.arena, cx=a.x+a.w/2, cy=a.y+a.h/2;
+    const go=new ManaOrb(cx+(-30+Math.random()*60),cy+(-30+Math.random()*60));
+    go.golden=true; go.r=16; s.orbs.push(go);
+    showNotif('✨ 황금 오브 등장!','#ffd700'); shakeScreen(0.3);
+  }
+  // 골든 오브 픽업
+  s.orbs.filter(o=>o.golden).forEach(o=>{
+    s.players.forEach(p=>{
+      if(!p.alive)return;
+      if(Math.hypot(o.x-p.x,o.y-p.y)<p.radius+o.r){
+        p.mp=Math.min(p.maxMp,p.mp+50);
+        // 쿨다운 20% 단축 (5초간)
+        p.cdBoost=5.0;
+        o.alive=false;
+        spawnDeathFX(o.x,o.y,'#ffd700');
+        showNotif('✨ +50 Mana & 쿨다운 20%↓','#ffd700');
+        shakeScreen(0.5);
+        playSFX('mana',0.8);
+      }
+    });
+  });
 
   s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
   if(s.shakeT>0){s.shakeT-=dt; const m=s.shakeT*14; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m;}
@@ -236,6 +284,12 @@ function updateHUD(){
   if(h2n) h2n.style.color=opp.hp<30?'#ff4444':opp.hp<60?'#ffaa44':'';
   document.getElementById('score-p1').textContent=scores[isJoin?1:0];
   document.getElementById('score-p2').textContent=scores[isJoin?0:1];
+  // 황금 오브 버프 표시
+  const boostEl=document.getElementById('cd-boost-indicator');
+  if(boostEl){
+    if(me.cdBoost>0){ boostEl.style.display='block'; boostEl.textContent='⚡ CD -20% '+me.cdBoost.toFixed(1)+'s'; }
+    else boostEl.style.display='none';
+  }
   SPELLS.forEach((_,i)=>{
     const sl=document.getElementById('sl-'+i); if(!sl)return;
     sl.classList.toggle('active',me.selSpell===i);

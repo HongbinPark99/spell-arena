@@ -21,7 +21,7 @@ class Player {
     this.alive=true; this.stunTimer=0; this.slowTimer=0; this.flash=0; this.invincible=0;
     this.isAI=isAI||false; this.aiTimer=0; this.jx=0; this.jy=0;
     this.trail=[];
-    this.spellsCast=0; this.summonsCast=0;
+    this.spellsCast=0; this.summonsCast=0; this.cdBoost=0;
     this.invasionTimer=0; this.inEnemyTerritory=false;
   }
 
@@ -64,10 +64,12 @@ class Player {
       this.swordAngle+=this.swordSwingDir*dt*13;
       if(this.swordTimer<=0)this.swordActive=false;
     }
-    if(this.swordCD>0)this.swordCD-=dt*1000;
+    if(this.cdBoost>0)this.cdBoost-=dt;
+    const cdMult=this.cdBoost>0?1.2:1.0; // 황금 오브: 쿨다운 20% 빠르게
+    if(this.swordCD>0)this.swordCD-=dt*1000*cdMult;
     for(let i=0;i<4;i++){
-      if(this.spellCDs[i]>0)this.spellCDs[i]-=dt*1000;
-      if(this.summonCDs[i]>0)this.summonCDs[i]-=dt*1000;
+      if(this.spellCDs[i]>0)this.spellCDs[i]-=dt*1000*cdMult;
+      if(this.summonCDs[i]>0)this.summonCDs[i]-=dt*1000*cdMult;
     }
     if(this.flash>0)this.flash-=dt*5;
     if(this.invincible>0)this.invincible-=dt;
@@ -730,50 +732,63 @@ class Creature {
       bestD=Math.hypot(enemyPlayer.x-this.x,enemyPlayer.y-this.y);
     }
 
+    // ── 소환수/유닛 겹침 방지 (freeze 원인 차단) ──
+    creatures.forEach(other=>{
+      if(other===this||!other.alive)return;
+      const ox=other.x-this.x, oy=other.y-this.y;
+      const od=Math.sqrt(ox*ox+oy*oy);
+      const minD=this.radius+other.radius;
+      if(od<minD&&od>0.5){
+        const push=(minD-od)/minD*0.6;
+        this.x-=ox/od*push; this.y-=oy/od*push;
+      }
+    });
+
     if(target){
       const dx=target.x-this.x, dy=target.y-this.y;
-      const dist=Math.sqrt(dx*dx+dy*dy)||1;
-      this.facing=dx>0?1:-1;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      // dist가 너무 작으면 (완전 겹침) 공격/이동 스킵 → freeze 방지
+      if(dist<3){ this.vx*=0.4; this.vy*=0.4; }
+      else {
+        this.facing=dx>0?1:-1;
 
-      // ── 원거리 공격 ──
-      if(this.def.shootRange>0 && dist<this.def.shootRange && this.shootTimer<=0){
-        this.shootTimer=this.def.shootCd;
-        projs.push(new Projectile(
-          this.x,this.y,
-          (dx/dist)*this.def.shootSpd,(dy/dist)*this.def.shootSpd,
-          {name:'shot',color:this.def.color,dmg:this.def.shootDmg,
-           speed:this.def.shootSpd,radius:this.def.shootR,
-           pierce:this.def.pierce||false,slow:false},
-          this.ownerId+'_c'
-        ));
-      }
+        // ── 원거리 공격 ──
+        if(this.def.shootRange>0 && dist<this.def.shootRange && this.shootTimer<=0){
+          this.shootTimer=this.def.shootCd;
+          projs.push(new Projectile(
+            this.x,this.y,
+            (dx/dist)*this.def.shootSpd,(dy/dist)*this.def.shootSpd,
+            {name:'shot',color:this.def.color,dmg:this.def.shootDmg,
+             speed:this.def.shootSpd,radius:this.def.shootR,
+             pierce:this.def.pierce||false,slow:false},
+            this.ownerId+'_c'
+          ));
+        }
 
-      // ── 근접 공격: 두 물체의 반지름 합 + atkRange 여유 ──
-      // 타겟의 반지름도 고려해서 충분히 넓게 판정
-      const targetR = target.radius||20;
-      const meleeDist = this.def.atkRange + this.radius + targetR;
-      if(dist < meleeDist && this.atkTimer<=0){
-        this.atkTimer=this.def.atkCd;
-        if(target.takeDamage) target.takeDamage(this.def.dmg);
-        // 근접 공격 슬래시 이펙트
-        if(typeof GS!=='undefined'&&GS){
-          const mx=this.x+dx/dist*this.radius, my=this.y+dy/dist*this.radius;
-          for(let i=0;i<6;i++){
-            const a=Math.atan2(dy,dx)+(-0.5+Math.random())*1.2;
-            const v=3+Math.random()*4;
-            GS.particles.push(new Particle(mx,my,this.color,Math.cos(a)*v,Math.sin(a)*v,2+Math.random()*2,.4+Math.random()*.3));
+        // ── 근접 공격 ──
+        const targetR = target.radius||20;
+        const meleeDist = this.def.atkRange + this.radius + targetR;
+        if(dist < meleeDist && this.atkTimer<=0){
+          this.atkTimer=this.def.atkCd;
+          if(target.takeDamage) target.takeDamage(this.def.dmg);
+          if(typeof GS!=='undefined'&&GS){
+            const mx=this.x+dx/dist*this.radius, my=this.y+dy/dist*this.radius;
+            for(let i=0;i<6;i++){
+              const a=Math.atan2(dy,dx)+(-0.5+Math.random())*1.2;
+              const v=3+Math.random()*4;
+              GS.particles.push(new Particle(mx,my,this.color,Math.cos(a)*v,Math.sin(a)*v,2+Math.random()*2,.4+Math.random()*.3));
+            }
           }
         }
-      }
 
-      // ── 이동: 근접범위 밖이면 접근, 안이면 정지 ──
-      // 정지 거리를 공격 가능 거리보다 살짝 더 멀게 = 계속 밀착
-      const stopDist = meleeDist - this.radius*0.5;
-      if(dist > stopDist){
-        this.vx=dx/dist; this.vy=dy/dist;
-      } else {
-        this.vx*=0.85; this.vy*=0.85;
-      }
+        // ── 이동 ──
+        const stopDist2 = this.def.atkRange + this.radius + targetR - this.radius*0.5;
+        if(dist > stopDist2){
+          this.vx=dx/dist; this.vy=dy/dist;
+        } else {
+          this.vx*=0.85; this.vy*=0.85;
+        }
+      } // end dist>3
     } else {
       // 타겟 없으면 주인 플레이어 따라가기
       const own=players.find(p=>p.id===this.ownerId);
@@ -796,10 +811,9 @@ class Creature {
   }
 
   // FIX #1: No knockback
-  takeDamage(dmg){
+  takeDamage(dmg, isCrit=false){
     if(this.invincible>0)return;
     this.hp-=dmg; this.flash=1; this.invincible=.12;
-    // 피격 이펙트 (renderer.js의 spawnHitFX 호출)
     if(typeof spawnHitFX==='function') spawnHitFX(this.x,this.y,this.color);
     if(this.hp<=0){
       this.alive=false;
@@ -1596,11 +1610,33 @@ class ManaOrb {
   constructor(x,y){this.x=x;this.y=y;this.r=8;this.alive=true;this.age=0;this.bob=Math.random()*Math.PI*2;}
   update(dt){this.age+=dt;this.bob+=dt*2.8;if(this.age>18)this.alive=false;}
   draw(ctx){
+    const T=Date.now()*.003;
     const y=this.y+Math.sin(this.bob)*3.5;
-    ctx.save(); ctx.shadowBlur=18; ctx.shadowColor='#a855f7';
-    const g=ctx.createRadialGradient(this.x,y,0,this.x,y,this.r);
-    g.addColorStop(0,'#fff'); g.addColorStop(.4,'#c084fc'); g.addColorStop(1,'#a855f700');
-    ctx.beginPath(); ctx.arc(this.x,y,this.r,0,Math.PI*2); ctx.fillStyle=g; ctx.fill(); ctx.restore();
+    ctx.save();
+    if(this.golden){
+      const pulse=Math.sin(T*3)*.25+.85;
+      ctx.shadowBlur=32; ctx.shadowColor='#ffd700';
+      ctx.strokeStyle='rgba(255,215,0,.5)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(this.x,y,this.r*1.8,T*2,T*2+Math.PI*1.5); ctx.stroke();
+      ctx.strokeStyle='rgba(255,180,0,.35)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(this.x,y,this.r*2.2,-T*1.5,-T*1.5+Math.PI*1.2); ctx.stroke();
+      for(let i=0;i<6;i++){
+        const a=T*2+i*Math.PI/3, r=this.r*(1.4+Math.sin(T*4+i)*.2);
+        ctx.fillStyle='rgba(255,215,0,.6)';
+        ctx.beginPath(); ctx.arc(this.x+Math.cos(a)*r,y+Math.sin(a)*r,2.5,0,Math.PI*2); ctx.fill();
+      }
+      const g=ctx.createRadialGradient(this.x,y,0,this.x,y,this.r*pulse);
+      g.addColorStop(0,'#ffffff'); g.addColorStop(.3,'#ffd700'); g.addColorStop(.7,'#ff8800'); g.addColorStop(1,'rgba(255,150,0,0)');
+      ctx.beginPath(); ctx.arc(this.x,y,this.r*1.1*pulse,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+      ctx.font='bold 11px Cinzel,serif'; ctx.textAlign='center'; ctx.fillStyle='#ffd700';
+      ctx.shadowBlur=10; ctx.fillText('★',this.x,y-this.r*2.2);
+    } else {
+      ctx.shadowBlur=18; ctx.shadowColor='#a855f7';
+      const g=ctx.createRadialGradient(this.x,y,0,this.x,y,this.r);
+      g.addColorStop(0,'#fff'); g.addColorStop(.4,'#c084fc'); g.addColorStop(1,'#a855f700');
+      ctx.beginPath(); ctx.arc(this.x,y,this.r,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+    }
+    ctx.restore();
   }
 }
 
