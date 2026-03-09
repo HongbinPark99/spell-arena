@@ -1,12 +1,14 @@
 // renderer.js — 고퀄 판타지 아레나 렌더링
 
 function gameRender(){
-  ctx.clearRect(0,0,W,H);
-  if(!GS) return;
+  if(!GS){ ctx.clearRect(0,0,W,H); return; }
   const s=GS;
+  const sx=s.shakeX||0, sy=s.shakeY||0;
+  // shake 범위를 포함해 여유있게 클리어 (ctx.translate로 이동해도 잘림 없음)
+  ctx.clearRect(-16,-16,W+32,H+32);
   try {
     ctx.save();
-    // shake는 canvas CSS transform으로 처리 (아래 gameRender 끝에서)
+    if(sx||sy) ctx.translate(sx,sy);
     drawArena(s.arena, s.players);
     if(s.pillars) s.pillars.forEach(pl=>{ try{pl.draw(ctx);}catch(e){} });
     if(s.orbs) s.orbs.forEach(o=>{ try{o.draw(ctx);}catch(e){} });
@@ -29,12 +31,7 @@ function gameRender(){
     }
     ctx.restore();
   } catch(e){ console.error('render error',e); try{ctx.restore();}catch(_){} }
-  // 화면 shake: canvas CSS transform (클리핑 없이 흔들림)
-  if(GS && (GS.shakeX||GS.shakeY)){
-    canvas.style.transform = `translate(${GS.shakeX}px,${GS.shakeY}px)`;
-  } else {
-    canvas.style.transform = '';
-  }
+  // CSS transform 미사용 — ctx.translate로만 처리
 }
 
 function drawSpellEffects(ctx){
@@ -341,7 +338,7 @@ function spawnDeathFX(x,y,col){
   for(let i=0;i<8;i++){const a=Math.random()*Math.PI*2,v=1+Math.random()*2;GS.particles.push(new Particle(x,y,'#fff',Math.cos(a)*v,Math.sin(a)*v,2+Math.random()*4,.8));}
 }
 function spawnOrbFX(x,y){for(let i=0;i<12;i++){const a=Math.random()*Math.PI*2;GS.particles.push(new Particle(x,y,'#a855f7',Math.cos(a)*3,Math.sin(a)*3-1,3,.5));}}
-function shakeScreen(i){if(!document.getElementById('shake-toggle').classList.contains('on'))return;if(GS)GS.shakeT=Math.max(GS.shakeT,i*.5);}
+function shakeScreen(i){} // shake disabled — 캔버스 깨짐 원인
 
 let _ovT;
 function showOverlay(txt,col,dur=1.5){

@@ -123,13 +123,13 @@ const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
 let W, H;
 function resizeCanvas(){
-  // game-screen이 보이는 상태에서 실제 뷰포트를 정확히 측정
-  const gw=document.getElementById('game-screen');
-  const w = (gw&&gw.offsetWidth>0) ? gw.offsetWidth : window.innerWidth;
-  const h = (gw&&gw.offsetHeight>0) ? gw.offsetHeight : window.innerHeight;
+  // 항상 window 기준 — offsetWidth는 display:none일 때 0이 돼서 버그 발생
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  if(W===w && H===h) return; // 변화 없으면 재설정 금지 (리셋 방지)
   W=canvas.width=w; H=canvas.height=h;
 }
-window.addEventListener('resize', ()=>{ resizeCanvas(); if(GS) recalcArena(); });
+window.addEventListener('resize', ()=>{ resizeCanvas(); if(typeof GS!=='undefined'&&GS) recalcArena(); });
 
 // 저장 데이터 초기 로드 (progression.js 이후 실행되므로 지연)
 window.addEventListener('load', ()=>{ if(typeof loadProgress==='function') loadProgress(); });

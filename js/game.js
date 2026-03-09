@@ -11,7 +11,7 @@ function calcArena(){
 }
 
 function createGS(){
-  resizeCanvas();
+  // resizeCanvas는 startGame에서만 호출 (여기서 호출 시 캔버스 리셋 버그)
   const arena=calcArena(), cx=arena.x+arena.w/2, cy=arena.y+arena.h/2;
   return {
     arena, players:[
@@ -169,8 +169,7 @@ function gameUpdate(dt){
     if(netConn){try{netConn.send({type:'input',vx:p2.vx,vy:p2.vy,sdx:p2.sdx,sdy:p2.sdy});}catch(e){}}
     // 파티클/shake 로컬
     s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
-    if(s.shakeT>0){s.shakeT-=dt; const m=s.shakeT*7; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m;}
-    else{s.shakeX=s.shakeY=0;}
+    s.shakeX=0; s.shakeY=0; // shake disabled
     updateTerritoryWarning(s.players[1]);
     updateHUD();
     return;
@@ -444,8 +443,7 @@ function gameUpdate(dt){
   });
 
   s.particles.forEach(p=>p.update(dt)); s.particles=s.particles.filter(p=>p.alive);
-  if(s.shakeT>0){s.shakeT-=dt; const m=s.shakeT*7; s.shakeX=(Math.random()-.5)*m; s.shakeY=(Math.random()-.5)*m;}
-  else{s.shakeX=s.shakeY=0;}
+  s.shakeX=0; s.shakeY=0; // shake disabled
 
   // HOST → JOIN 동기화
   if(netRole==='host'&&netConn){
@@ -648,7 +646,7 @@ function checkRoundEnd(){
     showOverlay('ROUND '+roundNum,'#f5c842',1.8);
     setTimeout(()=>{
       _showResultPending=false;
-      resizeCanvas(); spellEffects=[]; GS=createGS(); spawnPillars(GS);
+      spellEffects=[]; GS=createGS(); spawnPillars(GS);
       const td=document.getElementById('timer-disp');
       if(td){ td.textContent=settings.timerDuration; td.style.color=''; }
     }, 1800);
@@ -814,7 +812,9 @@ function _doRematch(){
   rematchReady=false; _showResultPending=false;
   totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
   applyLoadout(); rebuildActionBar();
-  showScreen('game-screen'); resizeCanvas();
+  showScreen('game-screen');
+  // 한 번만, window 기준으로 정확하게
+  W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight;
   spellEffects=[]; GS=createGS(); spawnPillars(GS);
   if(netRole) GS.players[1].isAI=false;
   resetGameHUD();

@@ -82,7 +82,8 @@ function enterCampaignStage(ch, stage) {
   totalStats = {kills:0, spells:0, summons:0};
   spellEffects = [];
   applyLoadout(); rebuildActionBar();
-  showScreen('game-screen'); resizeCanvas();
+  showScreen('game-screen');
+  W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight;
   _showResultPending = false;
   GS = createGS(); spawnPillars(GS);
   // AI 스펠 적용
