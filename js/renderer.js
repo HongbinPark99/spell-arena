@@ -1,6 +1,8 @@
 // renderer.js — 고퀄 판타지 아레나 렌더링
 
 function gameRender(){
+  // W/H 미초기화 방어
+  if(!W||!H){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
   if(!GS){ ctx.clearRect(0,0,W,H); return; }
   const s=GS;
   const sx=s.shakeX||0, sy=s.shakeY||0;
@@ -31,7 +33,12 @@ function gameRender(){
       ctx.restore();
     }
     ctx.restore();
-  } catch(e){ console.error('render error',e); try{ctx.restore();}catch(_){} }
+  } catch(e){
+    console.error('🔴 render error:', e.message, e.stack);
+    try{ctx.restore();}catch(_){}
+    // 에러 시 화면에 빨간 배경으로 표시 (디버그)
+    try{ ctx.fillStyle='rgba(80,0,0,.3)'; ctx.fillRect(0,0,W,H); }catch(_){}
+  }
   // CSS transform 미사용 — ctx.translate로만 처리
 }
 

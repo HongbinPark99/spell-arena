@@ -828,8 +828,8 @@ function _doRematch(){
   totalStats={kills:0,spells:0,summons:0}; scores=[0,0]; roundNum=1;
   applyLoadout(); rebuildActionBar();
   showScreen('game-screen');
-  // 한 번만, window 기준으로 정확하게
-  W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight;
+  W=canvas.width=window.innerWidth;
+  H=canvas.height=window.innerHeight;
   spellEffects=[]; GS=createGS(); spawnPillars(GS);
   if(netRole) GS.players[1].isAI=false;
   resetGameHUD();

@@ -100,23 +100,31 @@ function handleNetData(data){
 
 function startOnlineGame(role){
   difficulty='normal';
-  scores=[0,0];roundNum=1;totalStats={kills:0,spells:0,summons:0};
+  scores=[0,0]; roundNum=1; totalStats={kills:0,spells:0,summons:0};
   _showResultPending=false;
   joinCreatureCache={};
-  document.getElementById('p2-name-span').textContent='PLAYER 2';
-  // 화면 먼저 표시 후 canvas 크기 설정
+  // RAF 중단
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+  // 화면 전환
   showScreen('game-screen');
+  // canvas 크기 강제 설정 (W/H 이미 초기화돼있지만 명시적으로)
   W=canvas.width=window.innerWidth;
   H=canvas.height=window.innerHeight;
+  // GS 생성
+  spellEffects=[];
   GS=createGS();
   GS.players[1].isAI=false;
   spawnPillars(GS);
-  spellEffects=[];
+  // HUD
+  document.getElementById('p2-name-span').textContent='PLAYER 2';
   resetGameHUD();
-  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
-  paused=false;lastTime=performance.now();
-  if(role==='host'&&netConn)netConn.send({type:'start'});
+  // HOST는 JOIN에게 start 신호 전송
+  console.log('🎮 startOnlineGame:', role, 'W='+W, 'H='+H, 'arena=', GS&&GS.arena);
+  if(role==='host'&&netConn) netConn.send({type:'start'});
+  // 루프 시작
+  paused=false; lastTime=performance.now();
   rafId=requestAnimationFrame(tick);
+  console.log('✅ tick started, rafId='+rafId);
 }
 
 // HOST → JOIN: 긴급 전체 동기화 (gameOver 이벤트용)

@@ -121,15 +121,20 @@ let difficulty='normal', roundNum=1, scores=[0,0], totalStats={kills:0,spells:0,
 
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
-let W, H;
+// W/H를 즉시 초기화 — 어떤 코드가 먼저 실행돼도 항상 유효한 값
+let W = window.innerWidth;
+let H = window.innerHeight;
+canvas.width  = W;
+canvas.height = H;
+
 function resizeCanvas(){
-  // 항상 window 기준 — offsetWidth는 display:none일 때 0이 돼서 버그 발생
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  if(W===w && H===h) return; // 변화 없으면 재설정 금지 (리셋 방지)
-  W=canvas.width=w; H=canvas.height=h;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width  = W;
+  canvas.height = H;
+  if(typeof GS !== 'undefined' && GS) recalcArena();
 }
-window.addEventListener('resize', ()=>{ resizeCanvas(); if(typeof GS!=='undefined'&&GS) recalcArena(); });
+window.addEventListener('resize', resizeCanvas);
 
 // 저장 데이터 초기 로드 (progression.js 이후 실행되므로 지연)
 window.addEventListener('load', ()=>{ if(typeof loadProgress==='function') loadProgress(); });
