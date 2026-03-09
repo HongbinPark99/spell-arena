@@ -207,3 +207,72 @@ kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px
 .res-btn-primary:hover{border-color:var(--gold);color:#fff;box-shadow:0 0 44px rgba(245,200,66,.45);}
 .res-btn-exit{border-color:rgba(255,80,80,.35);color:#ff9988;}
 .res-btn-exit:hover{border-color:#ff4444;color:#fff;box-shadow:0 0 24px rgba(255,68,68,.3);}
+
+/* ═══════════════════════════════════════
+   캠페인 / 진행 시스템 스타일
+═══════════════════════════════════════ */
+
+/* 챕터 카드 */
+.camp-chapter {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--ui);
+}
+.camp-chapter.camp-locked { opacity: .45; pointer-events: none; }
+.camp-chapter.camp-cleared { border-color: rgba(245,200,66,.4); }
+
+.camp-ch-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg,rgba(168,85,247,.12),rgba(74,240,255,.05));
+  border-bottom: 1px solid var(--border);
+}
+.camp-ch-emoji { font-size: 1.3rem; }
+.camp-ch-name  { font-family: Cinzel,serif; font-size: .82rem; letter-spacing: .15em; flex:1; }
+.camp-lock-badge  { font-size: .62rem; color: #ff6b35; background: rgba(255,107,53,.12); padding: 2px 7px; border-radius: 10px; }
+.camp-clear-badge { font-size: .62rem; color: #44ff88; }
+.camp-progress    { font-size: .65rem; color: var(--dim); }
+
+/* 스테이지 버튼 */
+.camp-stages { display: flex; flex-direction: column; gap: 0; }
+.camp-stage-btn {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; width: 100%; text-align: left;
+  background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,.04);
+  color: var(--text); cursor: pointer; transition: background .2s;
+}
+.camp-stage-btn:last-child { border-bottom: none; }
+.camp-stage-btn:hover:not(.camp-stage-locked) { background: rgba(168,85,247,.1); }
+.camp-stage-btn.camp-stage-cleared { background: rgba(68,255,136,.04); }
+.camp-stage-btn.camp-stage-locked  { opacity: .35; cursor: not-allowed; }
+
+.camp-stage-num  { font-family: Cinzel,serif; font-size: .8rem; color: var(--dim); min-width: 16px; }
+.camp-stage-info { flex: 1; }
+.camp-stage-name { font-family: Cinzel,serif; font-size: .78rem; letter-spacing: .1em; margin-bottom: 2px; }
+.camp-stage-desc { font-size: .62rem; color: var(--dim); margin-bottom: 2px; }
+.camp-stage-bonus{ font-size: .6rem; }
+.camp-stage-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.camp-stage-diff { font-family: Cinzel,serif; font-size: .6rem; letter-spacing: .1em; }
+.camp-stage-xp   { font-size: .65rem; color: #a855f7; }
+.camp-star       { font-size: 1rem; color: #f5c842; }
+
+/* 해금 아이템 */
+.ul-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg,rgba(245,200,66,.08),rgba(168,85,247,.06));
+  border: 1px solid rgba(245,200,66,.25);
+  border-radius: 6px;
+  animation: ulPop .5s ease both;
+}
+@keyframes ulPop { from{transform:scale(.8) translateY(10px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+.ul-emoji  { font-size: 1.6rem; }
+.ul-name   { font-family: Cinzel,serif; font-size: .8rem; letter-spacing: .1em; }
+.ul-type   { font-size: .62rem; color: var(--dim); margin-top: 2px; }
+.ul-new    { font-family: Cinzel,serif; font-size: .6rem; color: #f5c842; background: rgba(245,200,66,.15); padding: 2px 8px; border-radius: 10px; margin-left: auto; animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* 로드아웃 잠금 카드 */
+.lo-card-locked { opacity:.3; pointer-events:none; position:relative; }
+.lo-card-lock   { font-size:.55rem; color:#ff6b35; margin-top:3px; }

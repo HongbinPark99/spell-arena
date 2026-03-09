@@ -74,6 +74,12 @@ class Player {
     } else { this.invasionTimer=0; }
 
     // Trail
+    // NaN 방어
+    if(!isFinite(this.x)||!isFinite(this.y)){
+      const a=this.ownerId===1?GS.arena:GS.arena;
+      this.x=a.x+(this.ownerId===1?a.w*0.15:a.w*0.85); this.y=a.y+a.h/2;
+      this.vx=0; this.vy=0;
+    }
     this.trail.push({x:this.x,y:this.y,t:1});
     if(this.trail.length>10)this.trail.shift();
     this.trail.forEach(t=>t.t-=dt*3.5);
@@ -127,10 +133,15 @@ class Player {
 
     // Cast — AI aims at opponent by setting sdx/sdy
     if(dist<380&&Math.random()<diff.aiAttackRate){
-      const sp=SPELLS[this.selSpell];
+      // 스테이지별 AI 스펠 오버라이드 지원
+      const aiSpellList = this._stageSpells || SPELLS;
+      const sp=aiSpellList[this.selSpell] || aiSpellList[0];
       if(this.mp>=sp.cost&&this.spellCDs[this.selSpell]<=0){
         this.sdx=dx/dist; this.sdy=dy/dist;
+        const savedSpell = SPELLS[this.selSpell];
+        SPELLS[this.selSpell] = sp; // 임시 교체
         const pp=this.castSpell();
+        SPELLS[this.selSpell] = savedSpell; // 복원
         if(pp&&GS) handleSpellResult(pp,this);
       }
     }
@@ -725,17 +736,25 @@ class Creature {
       bestD=Math.hypot(enemyPlayer.x-this.x,enemyPlayer.y-this.y);
     }
 
-    // ── 소환수/유닛 겹침 방지 (freeze 원인 차단) ──
+    // ── 소환수/유닛 겹침 방지 — 누적 push를 한 번에 적용 ──
+    let pushX=0, pushY=0;
     creatures.forEach(other=>{
       if(other===this||!other.alive)return;
-      const ox=other.x-this.x, oy=other.y-this.y;
+      const ox=this.x-other.x, oy=this.y-other.y;
       const od=Math.sqrt(ox*ox+oy*oy);
-      const minD=this.radius+other.radius;
-      if(od<minD&&od>0.5){
-        const push=(minD-od)/minD*0.6;
-        this.x-=ox/od*push; this.y-=oy/od*push;
+      const minD=this.radius+other.radius+4;
+      if(od<minD&&od>1){
+        const force=(minD-od)/minD*0.5;
+        pushX+=ox/od*force; pushY+=oy/od*force;
+      } else if(od<=1){
+        // 완전 겹침: 랜덤 방향으로 밀기
+        pushX+=(Math.random()-.5)*2; pushY+=(Math.random()-.5)*2;
       }
     });
+    // push 최대값 제한 (NaN/폭발 방지)
+    const pushMag=Math.sqrt(pushX*pushX+pushY*pushY);
+    if(pushMag>8){ pushX=pushX/pushMag*8; pushY=pushY/pushMag*8; }
+    this.x+=pushX; this.y+=pushY;
 
     if(target){
       const dx=target.x-this.x, dy=target.y-this.y;
@@ -799,6 +818,12 @@ class Creature {
     const pad=this.def.phase?-15:this.radius+arena.padding;
     this.x=Math.max(arena.x+pad,Math.min(arena.x+arena.w-pad,this.x));
     this.y=Math.max(arena.y+pad,Math.min(arena.y+arena.h-pad,this.y));
+    // NaN 방어
+    if(!isFinite(this.x)||!isFinite(this.y)){
+      const a=this.ownerId===1?GS.arena:GS.arena;
+      this.x=a.x+(this.ownerId===1?a.w*0.15:a.w*0.85); this.y=a.y+a.h/2;
+      this.vx=0; this.vy=0;
+    }
     this.trail.push({x:this.x,y:this.y,t:1});
     if(this.trail.length>6)this.trail.shift();
     this.trail.forEach(t=>t.t-=dt*5);

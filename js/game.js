@@ -380,7 +380,7 @@ function gameUpdate(dt){
       totalStats.kills=(totalStats.kills||0)+1;
     }
   });
-  s.creatures=s.creatures.filter(c=>c.alive);
+  s.creatures=s.creatures.filter(c=>c.alive&&isFinite(c.x)&&isFinite(c.y));
 
   // ── invasion(선 침범) 사망 체크 ──
   if(!s.gameOver){
@@ -751,6 +751,34 @@ function showResult(){
   if(rs2)rs2.textContent=totalStats.spells;
   if(rsm)rsm.textContent=totalStats.summons;
   if(rsc)rsc.textContent=scores[0]+' — '+scores[1];
+
+  // ── 캠페인 모드: XP 획득 처리 ──
+  if(typeof currentStage !== 'undefined' && currentStage && typeof PROG !== 'undefined') {
+    const myHp = GS ? (GS.players[0].hp||0) : 0;
+    const won = (winner===1);
+    PROG.totalKills  += (totalStats.kills||0);
+    PROG.totalSpellsCast += (totalStats.spells||0);
+    if(won){
+      PROG.totalWins++;
+      if(!PROG.clearedStages.includes(currentStage.id))
+        PROG.clearedStages.push(currentStage.id);
+      const xpResult = calcStageXP(true, myHp);
+      const { leveled, unlocks } = gainXP(xpResult.total);
+      // 0.8초 후 해금 화면으로 전환
+      setTimeout(()=>{
+        document.querySelectorAll('.screen').forEach(el=>el.style.display='none');
+        const gw=document.getElementById('game-screen');
+        const ro=document.getElementById('result-screen');
+        if(ro) ro.style.display='none';
+        renderUnlockScreen(unlocks, xpResult);
+      }, 800);
+    } else {
+      // 패배해도 소량 XP
+      const { leveled, unlocks } = gainXP(Math.floor((currentStage.xp||60)*0.15));
+      saveProgress();
+    }
+    currentStage = null;
+  }
 }
 
 function spawnResultParticles(type){

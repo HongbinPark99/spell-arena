@@ -147,14 +147,23 @@ function updateLoSlot(type,idx){
 }
 
 function buildPool(type){
-  const pool=type==='spell'?SPELL_POOL:SUMMON_POOL;
+  const fullPool = type==='spell'?SPELL_POOL:SUMMON_POOL;
+  // 해금된 항목만 표시 (PROG 없으면 전체 표시)
+  const unlocked = (typeof PROG!=='undefined')
+    ? (type==='spell' ? PROG.unlockedSpells : PROG.unlockedSummons)
+    : null;
+  const pool = unlocked ? fullPool.filter(i=>unlocked.includes(i.id)) : fullPool;
   const el=document.getElementById(type==='spell'?'lo-spell-pool':'lo-summon-pool'); if(!el)return;
   el.innerHTML='';
-  pool.forEach(item=>{
-    const d=document.createElement('div'); d.className='lo-card';
+  // 잠금 아이템도 흐리게 표시
+  fullPool.forEach(item=>{
+    const isLocked = unlocked && !unlocked.includes(item.id);
+    const d=document.createElement('div');
+    d.className='lo-card' + (isLocked?' lo-card-locked':'');
     const costLabel=type==='spell'?`MP:${item.cost} CD:${(item.cd/1000).toFixed(1)}s`:`MP:${item.cost} HP:${item.hp}`;
-    d.innerHTML=`<div class="lo-card-emoji">${item.emoji}</div><div class="lo-card-name">${item.name}</div><div class="lo-card-info">${costLabel}</div>`;
-    d.onclick=()=>assignItem(type,item.id);
+    const lockInfo = isLocked ? '<div class="lo-card-lock">🔒 캠페인 해금</div>' : '';
+    d.innerHTML=`<div class="lo-card-emoji">${item.emoji}</div><div class="lo-card-name">${item.name}</div><div class="lo-card-info">${costLabel}</div>${lockInfo}`;
+    if(!isLocked) d.onclick=()=>assignItem(type,item.id);
     el.appendChild(d);
   });
 }
@@ -186,8 +195,10 @@ function openDraft() {
   draftPickedSpells = [];
   draftPickedSummons = [];
   // 랜덤으로 스펠 5개, 소환수 5개 제시
-  const spellOpts = [...SPELL_POOL].sort(()=>Math.random()-.5).slice(0,5);
-  const summonOpts = [...SUMMON_POOL].sort(()=>Math.random()-.5).slice(0,5);
+  const unlockedSp = (typeof PROG!=='undefined') ? SPELL_POOL.filter(s=>PROG.unlockedSpells.includes(s.id)) : SPELL_POOL;
+  const unlockedSm = (typeof PROG!=='undefined') ? SUMMON_POOL.filter(s=>PROG.unlockedSummons.includes(s.id)) : SUMMON_POOL;
+  const spellOpts = [...unlockedSp].sort(()=>Math.random()-.5).slice(0,5);
+  const summonOpts = [...unlockedSm].sort(()=>Math.random()-.5).slice(0,5);
 
   const spellDiv = document.getElementById('draft-spells');
   const summonDiv = document.getElementById('draft-summons');

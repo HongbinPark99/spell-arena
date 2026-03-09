@@ -99,7 +99,7 @@ const SUMMON_POOL = [
 
 // 플레이어 로드아웃 (기본값 = v13과 동일한 4스펠 4소환)
 let playerLoadout = {
-  spells:  ['fireball','icespear','shield','chain'],
+  spells:  ['fireball','icespear','nova','meteor'],
   summons: ['drake','specter','golem','wisp'],
 };
 
@@ -130,6 +130,9 @@ function resizeCanvas(){
   W=canvas.width=w; H=canvas.height=h;
 }
 window.addEventListener('resize', ()=>{ resizeCanvas(); if(GS) recalcArena(); });
+
+// 저장 데이터 초기 로드 (progression.js 이후 실행되므로 지연)
+window.addEventListener('load', ()=>{ if(typeof loadProgress==='function') loadProgress(); });
 
 function hex2rgb(hex){
   const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
