@@ -8,6 +8,7 @@ function gameRender(){
   if(s.shakeX||s.shakeY) ctx.translate(s.shakeX, s.shakeY);
 
   drawArena(s.arena, s.players);
+  if(s.pillars) s.pillars.forEach(pl=>pl.draw(ctx));
   s.orbs.forEach(o=>o.draw(ctx));
   s.particles.forEach(p=>p.draw(ctx));
   s.creatures.forEach(c=>c.draw(ctx));

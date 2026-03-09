@@ -47,6 +47,11 @@ document.addEventListener('keydown',e=>{
     return;
   }
   if(e.key===' '){p1.startSword(); playSFX('sword',0.4);}
+  // 궁극기: Tab 또는 X
+  if(e.key==='Tab'||e.key==='x'||e.key==='X'){
+    e.preventDefault();
+    if(typeof fireUltimate==='function') fireUltimate(p1);
+  }
 });
 
 document.addEventListener('keyup',e=>{keys[e.key]=false;});

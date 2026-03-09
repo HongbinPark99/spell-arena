@@ -16,11 +16,24 @@ function createGS(){
       new Player(1, cx-arena.w/4, cy, '#4af0ff','#00c8ff', false),  // P1 항상 왼쪽
       new Player(2, cx+arena.w/4, cy, '#ff6b35','#ff4400', true),   // P2 항상 오른쪽
     ],
-    projectiles:[],creatures:[],orbs:[],particles:[],
+    projectiles:[],creatures:[],orbs:[],particles:[],pillars:[],
     timer:settings.timerDuration,timerAcc:0,orbSpawnTimer:3.5,goldenOrbTimer:28,
     shakeX:0,shakeY:0,shakeT:0,
     gameOver:false,started:false,startTimer:2.8,
   };
+}
+
+function spawnPillars(gs){
+  const a=gs.arena, cx=a.x+a.w/2, cy=a.y+a.h/2;
+  gs.pillars=[];
+  // 중앙 좌우 대칭 2개 + 중앙 상하 2개
+  const positions=[
+    [cx-a.w*.18, cy-a.h*.22],
+    [cx-a.w*.18, cy+a.h*.22],
+    [cx+a.w*.18, cy-a.h*.22],
+    [cx+a.w*.18, cy+a.h*.22],
+  ];
+  positions.forEach(([x,y])=>gs.pillars.push(new Pillar(x,y)));
 }
 
 function recalcArena(){
@@ -39,6 +52,74 @@ function tick(ts){
   }
   gameRender();
   rafId=requestAnimationFrame(tick);
+}
+
+// ── 궁극기 발동 ──────────────────────────────────
+function fireUltimate(player){
+  if(!player.ultReady||player.ultCD>0)return;
+  player.ultReady=false; player.ult=0; player.ultCD=18; // 18초 재충전
+  const a=GS.arena;
+  const isP1=player.id===1;
+
+  if(isP1){
+    // P1 궁극기: 번개 폭풍 — 화면 전체에 번개 투사체 12개 부채꼴
+    showNotif('⚡ LIGHTNING STORM!','#4af0ff'); shakeScreen(0.6);
+    playSFX('explosion',0.9);
+    for(let i=0;i<12;i++){
+      const angle=(-0.4+i*0.08)+Math.random()*0.04; // 좁은 부채꼴, 오른쪽
+      const spd=11+Math.random()*3;
+      GS.projectiles.push(new Projectile(
+        player.x,player.y, Math.cos(angle)*spd, Math.sin(angle)*spd,
+        {name:'ult_lightning',color:'#4af0ff',dmg:38,speed:spd,radius:7,pierce:true,slow:false,ult:true},
+        player.id
+      ));
+    }
+    // 화면 번쩍
+    const cv=document.getElementById('game-canvas');
+    if(cv){cv.style.boxShadow='0 0 80px #4af0ff'; setTimeout(()=>cv.style.boxShadow='',400);}
+  } else {
+    // P2 궁극기: 화염 폭발 — 원형 폭발파 + 중앙 화염탄
+    showNotif('🔥 INFERNO BURST!','#ff6b35'); shakeScreen(0.6);
+    playSFX('explosion',0.9);
+    for(let i=0;i<16;i++){
+      const angle=(i/16)*Math.PI*2;
+      const spd=5+Math.random()*2;
+      GS.projectiles.push(new Projectile(
+        player.x,player.y, Math.cos(angle)*spd, Math.sin(angle)*spd,
+        {name:'ult_fire',color:'#ff6b35',dmg:30,speed:spd,radius:12,pierce:false,slow:false,ult:true},
+        player.id
+      ));
+    }
+    const cv=document.getElementById('game-canvas');
+    if(cv){cv.style.boxShadow='0 0 80px #ff4400'; setTimeout(()=>cv.style.boxShadow='',400);}
+    spawnDeathFX(player.x,player.y,'#ff6b35');
+  }
+}
+
+// ── 콤보 히트 처리 ────────────────────────────────
+function registerComboHit(attacker, spellId, targetX, targetY){
+  const now=Date.now();
+  if(attacker.lastHitSpell===spellId && now-attacker.lastHitTime<2200){
+    attacker.comboCount=(attacker.comboCount||0)+1;
+    if(attacker.comboCount>=1){
+      // 콤보 폭발!
+      showNotif('🔗 COMBO x'+(attacker.comboCount+1)+'!','#ff88ff');
+      shakeScreen(0.35);
+      const spd=6;
+      for(let i=0;i<8;i++){
+        const a=(i/8)*Math.PI*2;
+        GS.projectiles.push(new Projectile(
+          targetX,targetY, Math.cos(a)*spd, Math.sin(a)*spd,
+          {name:'combo',color:'#ff88ff',dmg:Math.min(20+attacker.comboCount*5,40),speed:spd,radius:8,pierce:false,slow:false},
+          attacker.id
+        ));
+      }
+      if(attacker.comboCount>=2) attacker.comboCount=0; // 3콤보 후 리셋
+    }
+  } else {
+    attacker.comboCount=0;
+  }
+  attacker.lastHitSpell=spellId; attacker.lastHitTime=now;
 }
 
 // ── 크리티컬 히트 (10% 확률, 1.8배 데미지) ──
@@ -113,6 +194,8 @@ function gameUpdate(dt){
   if(netRole==='host') applyOnlineP2Input();
 
   s.players.forEach(p=>p.update(dt,s.arena,p.id===1?p2:p1));
+  // AI 궁극기 자동 발동
+  s.players.forEach(p=>{ if(p.isAI&&p.ultReady&&Math.random()<0.3*dt) fireUltimate(p); });
   updateTerritoryWarning(p1);
 
   // 투사체
@@ -127,6 +210,7 @@ function gameUpdate(dt){
         const pd=calcDmg(pr.spell.dmg,pr.x,pr.y); p.takeDamage(pd);
         if(pr.spell.slow)p.slowTimer=2.2;
         spawnHitFX(pr.x,pr.y,pr.spell.color); shakeScreen(.14); playSFX('hit',0.35);
+        if(!pr.spell.ult){ const atk=s.players.find(pl=>pl.id===pr.ownerId); if(atk) registerComboHit(atk,pr.spell.name,pr.x,pr.y); }
         if(!p.alive)handleDeath(p, p.id===1?p2:p1);
         if(!pr.spell.pierce)pr.alive=false;
       }
@@ -167,6 +251,35 @@ function gameUpdate(dt){
       }
     });
   });
+
+  // ── 기둥 업데이트 + 투사체 충돌 ──
+  if(s.pillars){
+    s.pillars.forEach(pl=>pl.update(dt));
+    s.projectiles.forEach(pr=>{
+      s.pillars.forEach(pl=>{
+        if(!pl.alive)return;
+        if(Math.hypot(pr.x-pl.x,pr.y-pl.y)<pl.r+pr.radius){
+          pl.takeDamage(pr.spell.dmg*0.7);
+          spawnHitFX(pr.x,pr.y,'#88aaff');
+          if(!pr.spell.pierce)pr.alive=false;
+        }
+      });
+    });
+    // 플레이어+소환수 기둥 밀어내기 (충돌)
+    [...s.players,...s.creatures].forEach(e=>{
+      if(!e.alive)return;
+      s.pillars.forEach(pl=>{
+        if(!pl.alive)return;
+        const ox=e.x-pl.x, oy=e.y-pl.y;
+        const d=Math.sqrt(ox*ox+oy*oy);
+        const minD=pl.r+(e.radius||20);
+        if(d<minD&&d>0.5){
+          const push=(minD-d)/d;
+          e.x+=ox*push; e.y+=oy*push;
+        }
+      });
+    });
+  }
 
   s.creatures.forEach(c=>c.update(dt,s.arena,s.players,s.creatures,s.projectiles));
   // 소환수 처치 시 킬스트릭 마나 보너스
@@ -284,6 +397,13 @@ function updateHUD(){
   if(h2n) h2n.style.color=opp.hp<30?'#ff4444':opp.hp<60?'#ffaa44':'';
   document.getElementById('score-p1').textContent=scores[isJoin?1:0];
   document.getElementById('score-p2').textContent=scores[isJoin?0:1];
+  // 궁극기 게이지 HUD
+  const ug1=document.getElementById('ult-bar-p1'), ug2=document.getElementById('ult-bar-p2');
+  if(ug1) ug1.style.width=(me.ult/me.maxUlt*100)+'%';
+  if(ug2) ug2.style.width=(opp.ult/opp.maxUlt*100)+'%';
+  const ur1=document.getElementById('ult-ready-p1'), ur2=document.getElementById('ult-ready-p2');
+  if(ur1){ ur1.style.display=me.ultReady?'block':'none'; }
+  if(ur2){ ur2.style.display=opp.ultReady?'block':'none'; }
   // 황금 오브 버프 표시
   const boostEl=document.getElementById('cd-boost-indicator');
   if(boostEl){
@@ -471,7 +591,7 @@ function _doRematch(){
 function startGame(diff){
   difficulty=diff; scores=[0,0]; roundNum=1; totalStats={kills:0,spells:0,summons:0};
   applyLoadout(); rebuildActionBar();
-  GS=createGS(); showScreen('game-screen'); resetGameHUD();
+  GS=createGS(); spawnPillars(GS); showScreen('game-screen'); resetGameHUD();
   paused=false; lastTime=performance.now(); rafId=requestAnimationFrame(tick);
 }
 function resetGameHUD(){

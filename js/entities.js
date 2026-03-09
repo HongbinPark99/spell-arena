@@ -22,6 +22,10 @@ class Player {
     this.isAI=isAI||false; this.aiTimer=0; this.jx=0; this.jy=0;
     this.trail=[];
     this.spellsCast=0; this.summonsCast=0; this.cdBoost=0;
+    // 궁극기
+    this.ult=0; this.maxUlt=100; this.ultReady=false; this.ultCD=0;
+    // 콤보
+    this.lastHitSpell=-1; this.lastHitTime=0; this.comboCount=0;
     this.invasionTimer=0; this.inEnemyTerritory=false;
   }
 
@@ -29,12 +33,21 @@ class Player {
     if(!this.alive)return;
     if(this.stunTimer>0){this.stunTimer-=dt;return;}
     this.mp=Math.min(this.maxMp,this.mp+this.mpRegen*dt);
+    // 궁극기 자연 충전 (초당 6)
+    if(this.ultCD>0)this.ultCD-=dt;
+    if(!this.ultReady){ this.ult=Math.min(this.maxUlt,this.ult+6*dt); if(this.ult>=this.maxUlt){this.ultReady=true; if(typeof showNotif==='function') showNotif(this.id===1?'⚡ 궁극기 준비!':'🔥 궁극기 준비!','#ffd700');} }
     const spd=this.speed*(this.slowTimer>0?.5:1)*dt;
     if(this.slowTimer>0)this.slowTimer-=dt;
     this.x+=this.vx*spd; this.y+=this.vy*spd;
     const pad=this.radius+arena.padding;
     this.x=Math.max(arena.x+pad,Math.min(arena.x+arena.w-pad,this.x));
     this.y=Math.max(arena.y+pad,Math.min(arena.y+arena.h-pad,this.y));
+    // AI(P2)는 매 프레임 경계선 오른쪽으로 강제 클램핑 — invasionDelay 무관하게 절대 안 넘어감
+    if(this.isAI){
+      const midX=arena.x+arena.w/2;
+      const aiMinX=midX+this.radius+8;
+      if(this.x<aiMinX){ this.x=aiMinX; if(this.vx<0)this.vx=0; }
+    }
 
     // facing 항상 상대 진영 방향으로 고정 (이동 방향 무관)
     // P1=오른쪽(+1), P2=왼쪽(-1) — 절대 바뀌지 않음
@@ -84,18 +97,26 @@ class Player {
     const dx=opponent.x-this.x, dy=opponent.y-this.y;
     const dist=Math.sqrt(dx*dx+dy*dy)||1;
     const midX=arena.x+arena.w/2;
+    // AI는 P2이므로 반드시 오른쪽 영역에만 있어야 함
+    const aiMinX = midX + this.radius + 12; // 경계선에서 최소 radius+12px 안쪽
 
-    // Movement — stay on right half
+    // Movement — stay strictly on right half
     if(dist>260){
-      const tx=Math.min(opponent.x-90, midX-10);
+      // 목표 X를 경계선 안쪽으로 제한
+      const tx=Math.max(aiMinX, Math.min(opponent.x-80, midX+80));
       const tdx=tx-this.x, tdy=opponent.y-this.y, td=Math.sqrt(tdx*tdx+tdy*tdy)||1;
       this.vx=tdx/td*diff.aiSpeed; this.vy=tdy/td*diff.aiSpeed;
     } else if(dist<110){
-      this.vx=-dx/dist*diff.aiSpeed; this.vy=-dy/dist*diff.aiSpeed;
+      // 후퇴할 때도 경계선 넘지 않도록
+      let rvx=-dx/dist*diff.aiSpeed;
+      if(this.x+rvx*50<aiMinX) rvx=Math.abs(rvx); // 왼쪽으로 후퇴 차단
+      this.vx=rvx; this.vy=-dy/dist*diff.aiSpeed;
     } else {
-      this.vx=(Math.random()-.5)*diff.aiSpeed; this.vy=(Math.random()-.5)*diff.aiSpeed*1.5;
+      this.vx=(Math.random()*.5)*diff.aiSpeed; // 오른쪽 방향만 허용
+      this.vy=(Math.random()-.5)*diff.aiSpeed*1.5;
     }
-    if(this.x<midX-20) this.vx=Math.abs(this.vx);
+    // 경계 침범 즉시 강제 수정
+    if(this.x<aiMinX){ this.x=aiMinX; this.vx=Math.abs(this.vx)*0.5; }
 
     // Cast — AI aims at opponent by setting sdx/sdy
     if(dist<380&&Math.random()<diff.aiAttackRate){
@@ -1578,6 +1599,67 @@ class Creature {
   }
 }
 
+// ─── PILLAR — 파괴 가능한 마법 기둥 ──────────────
+class Pillar {
+  constructor(x,y){
+    this.x=x; this.y=y; this.r=28;
+    this.hp=80; this.maxHp=80; this.alive=true;
+    this.flash=0; this.age=0; this.crumble=0;
+  }
+  takeDamage(dmg){
+    if(!this.alive)return;
+    this.hp-=dmg; this.flash=1;
+    if(this.hp<=0){ this.hp=0; this.alive=false; this.crumble=1.0;
+      if(typeof spawnDeathFX==='function') spawnDeathFX(this.x,this.y,'#88aaff');
+      if(typeof showNotif==='function') showNotif('💥 기둥 파괴!','#88aaff');
+    }
+  }
+  update(dt){ this.age+=dt; if(this.flash>0)this.flash-=dt*6; if(this.crumble>0)this.crumble-=dt*1.2; }
+  draw(ctx){
+    const T=Date.now()*.002;
+    const fl=this.flash>0&&Math.floor(Date.now()/55)%2===0;
+    const alive=this.alive;
+    if(!alive&&this.crumble<=0)return;
+    const alpha=alive?1:this.crumble;
+    ctx.save(); ctx.globalAlpha=alpha; ctx.translate(this.x,this.y);
+    if(!alive) ctx.rotate((1-this.crumble)*0.4);
+    const r=this.r;
+
+    // 기둥 몸통 (육각형)
+    const col=fl?'#fff':'#88aaff', dark=fl?'#ccc':'#1a2840', bright=fl?'#eee':'#4488cc';
+    ctx.shadowBlur=fl?0:20; ctx.shadowColor='#4488ff';
+    ctx.beginPath();
+    for(let i=0;i<6;i++){ const a=i*Math.PI/3-Math.PI/6; ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r); }
+    ctx.closePath();
+    const bg=ctx.createRadialGradient(-r*.2,-r*.3,r*.1,-r*.2,-r*.3,r*1.2);
+    bg.addColorStop(0,bright); bg.addColorStop(.5,dark); bg.addColorStop(1,'#080e1a');
+    ctx.fillStyle=bg; ctx.fill(); ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.stroke();
+
+    // 중앙 룬 크리스탈
+    if(alive){
+      ctx.shadowBlur=24; ctx.shadowColor='#4af0ff';
+      const hp=this.hp/this.maxHp;
+      const cg=ctx.createRadialGradient(0,0,0,0,0,r*.4);
+      cg.addColorStop(0,'#fff'); cg.addColorStop(.3,hp>0.5?'#4af0ff':'#ff8800'); cg.addColorStop(1,'transparent');
+      ctx.beginPath(); ctx.arc(0,0,r*.4,0,Math.PI*2); ctx.fillStyle=cg; ctx.fill();
+      // 회전 링
+      ctx.strokeStyle=(hp>0.5?'#4af0ff':'#ff4400')+'88'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(0,0,r*.6,T*2,T*2+Math.PI*1.3); ctx.stroke();
+    }
+
+    // HP 바
+    if(alive){
+      ctx.shadowBlur=0;
+      const bw=r*2.2, bh=5, bx=-bw/2, by=-r-10;
+      ctx.fillStyle='rgba(0,0,0,.7)'; ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,2); ctx.fill();
+      const hpC=this.hp/this.maxHp>0.5?'#4af0ff':'#ff4400';
+      ctx.fillStyle=hpC; ctx.beginPath(); ctx.roundRect(bx,by,bw*(this.hp/this.maxHp),bh,2); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+
 class Projectile {
   constructor(x,y,vx,vy,spell,ownerId){
     this.x=x; this.y=y; this.vx=vx; this.vy=vy;
@@ -1593,15 +1675,25 @@ class Projectile {
     if(this.x<arena.x||this.x>arena.x+arena.w||this.y<arena.y||this.y>arena.y+arena.h) this.alive=false;
   }
   draw(ctx){
+    const isUlt=this.spell.ult;
+    const trailLen=isUlt?20:12;
     this.trail.forEach((t,i)=>{
       const a=i/this.trail.length;
-      ctx.beginPath(); ctx.arc(t.x,t.y,this.radius*a*.6,0,Math.PI*2);
-      ctx.fillStyle=this.spell.color+Math.floor(a*65).toString(16).padStart(2,'0'); ctx.fill();
+      const r=this.radius*(isUlt?1.2:0.6)*a;
+      ctx.beginPath(); ctx.arc(t.x,t.y,r,0,Math.PI*2);
+      ctx.fillStyle=this.spell.color+Math.floor(a*(isUlt?100:65)).toString(16).padStart(2,'0'); ctx.fill();
     });
-    ctx.save(); ctx.shadowBlur=20; ctx.shadowColor=this.spell.color;
-    ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
-    const g=ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,this.radius);
-    g.addColorStop(0,'#fff'); g.addColorStop(.5,this.spell.color); g.addColorStop(1,this.spell.color+'00');
+    ctx.save();
+    ctx.shadowBlur=isUlt?40:20; ctx.shadowColor=this.spell.color;
+    if(isUlt){
+      // 궁극기 투사체 — 큰 빛나는 구
+      const pulse=Math.sin(Date.now()*.015)*.3+1;
+      ctx.beginPath(); ctx.arc(this.x,this.y,this.radius*1.6*pulse,0,Math.PI*2);
+      ctx.strokeStyle=this.spell.color; ctx.lineWidth=2; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(this.x,this.y,this.radius*(isUlt?1.2:1),0,Math.PI*2);
+    const g=ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,this.radius*(isUlt?1.2:1));
+    g.addColorStop(0,'#fff'); g.addColorStop(.4,this.spell.color); g.addColorStop(1,this.spell.color+'00');
     ctx.fillStyle=g; ctx.fill(); ctx.restore();
   }
 }
